@@ -19,7 +19,7 @@ async function startServer() {
     throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
   }
 
-  app.use(express.json());
+  app.use(express.json({ limit: "15mb" }));
 
   const supabaseHeaders = {
     apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -75,6 +75,48 @@ async function startServer() {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Unexpected error while updating CMS data" });
+    }
+  });
+
+  app.post("/api/upload-image", async (req, res) => {
+    const adminPassword = req.header("x-admin-password");
+    if (adminPassword !== ADMIN_PASSWORD) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { fileName, dataUrl } = req.body as { fileName?: string; dataUrl?: string };
+    if (!fileName || !dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+      return res.status(400).json({ error: "Invalid image payload" });
+    }
+
+    try {
+      const mimeMatch = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
+      if (!mimeMatch) return res.status(400).json({ error: "Invalid image mime type" });
+
+      const mime = mimeMatch[1];
+      const extMap: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+      };
+      const ext = extMap[mime];
+      if (!ext) return res.status(400).json({ error: "Unsupported image type" });
+
+      const base64 = dataUrl.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+      const buffer = Buffer.from(base64, "base64");
+      const uploadsDir = path.join(__dirname, "public", "uploads");
+      fs.mkdirSync(uploadsDir, { recursive: true });
+
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "");
+      const storedName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}.${ext}`;
+      const absolutePath = path.join(uploadsDir, storedName);
+      fs.writeFileSync(absolutePath, buffer);
+
+      return res.json({ url: `/uploads/${storedName}` });
+    } catch (error) {
+      return res.status(500).json({ error: "Failed to upload image" });
     }
   });
 

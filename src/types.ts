@@ -11,6 +11,7 @@ export interface AboutStat {
 export interface AboutData {
   title: string;
   content: string;
+  image: string;
   stats: AboutStat[];
 }
 
@@ -18,6 +19,21 @@ export interface ContactData {
   address: string;
   email: string;
   phone: string;
+}
+
+export interface SocialLink {
+  id: string;
+  label: string;
+  url: string;
+  enabled: boolean;
+}
+
+export interface UIContent {
+  aboutLabel: string;
+  newsLabel: string;
+  blogSectionTitle: string;
+  footerDescription: string;
+  socialLinks: SocialLink[];
 }
 
 export interface Category {
@@ -53,6 +69,7 @@ export interface CMSData {
   hero: HeroData;
   about: AboutData;
   contact: ContactData;
+  ui: UIContent;
   categories: Category[];
   products: Product[];
   blog: BlogPost[];

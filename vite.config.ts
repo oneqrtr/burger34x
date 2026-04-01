@@ -54,14 +54,14 @@ export default defineConfig(({mode, command}) => {
           scope: '/',
           icons: [
             {
-              src: '/pwa-icon.svg',
-              sizes: 'any',
-              type: 'image/svg+xml',
+              src: '/logo_final_vectorized.png',
+              sizes: '192x192',
+              type: 'image/png',
             },
             {
-              src: '/pwa-icon-maskable.svg',
-              sizes: 'any',
-              type: 'image/svg+xml',
+              src: '/logo_final_vectorized.png',
+              sizes: '512x512',
+              type: 'image/png',
               purpose: 'maskable',
             },
           ],

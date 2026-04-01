@@ -57,9 +57,9 @@ export const Home: React.FC = () => {
               className="relative rounded-xl overflow-hidden shadow-2xl"
             >
               <img 
-                src="https://images.unsplash.com/photo-1550966842-2849a2201ad0?auto=format&fit=crop&q=80&w=800" 
+                src={cmsData.about.image || '/logo_final.png'} 
                 alt="Hikayemiz" 
-                className="w-full aspect-[4/5] object-cover" 
+                className="block w-full h-auto object-contain" 
               />
             </motion.div>
           </div>
@@ -70,7 +70,7 @@ export const Home: React.FC = () => {
                 word === 'Sıradan' ? <span key={i} className="text-burgundy italic">{word} </span> : word + ' '
               ))}
             </h3>
-            <p className="text-lg text-white/60 leading-relaxed max-w-lg whitespace-pre-line">
+            <p className="w-full text-lg text-white/60 leading-relaxed whitespace-pre-line">
               {cmsData.about.content}
             </p>
             <div className="flex items-center gap-12 pt-4">
@@ -88,7 +88,7 @@ export const Home: React.FC = () => {
       {/* Blog / News */}
       <section className="py-32 px-8 max-w-7xl mx-auto">
         <div className="mb-16 text-center">
-          <h2 className="text-4xl font-bold tracking-tight mb-4">Gece notları</h2>
+          <h2 className="text-4xl font-bold tracking-tight mb-4">{cmsData.ui.blogSectionTitle}</h2>
           <div className="w-24 h-1 bg-burgundy mx-auto"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

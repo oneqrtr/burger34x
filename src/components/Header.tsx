@@ -2,19 +2,33 @@ import React from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
 import { Link } from 'react-router-dom';
+import { useCMSStore } from '../store/cmsStore';
+import { fallbackCmsData } from '../constants/fallbackCmsData';
 
 export const Header: React.FC = () => {
   const setIsCartOpen = useCartStore(state => state.setIsOpen);
   const cartItemsCount = useCartStore(state => state.items.reduce((acc, item) => acc + item.quantity, 0));
+  const { data, fetchData } = useCMSStore();
+  const cmsData = data ?? fallbackCmsData;
+
+  React.useEffect(() => {
+    if (!data) fetchData();
+  }, [data, fetchData]);
 
   return (
     <header className="fixed top-0 w-full z-50 bg-dark-bg/60 backdrop-blur-xl flex justify-between items-center px-8 py-4">
-      <Link to="/" className="text-2xl font-black tracking-tighter text-cream">Burger34</Link>
+      <Link to="/" className="flex items-center gap-3">
+        <img
+          src="/logo_final_vectorized.png"
+          alt="Burger34"
+          className="h-10 w-auto"
+        />
+      </Link>
       
       <nav className="hidden md:flex items-center gap-8">
         <Link to="/menu" className="text-cream hover:text-orange-accent transition-colors font-bold tracking-tight">Menü</Link>
-        <Link to="/about" className="text-cream hover:text-orange-accent transition-colors font-bold tracking-tight">Hakkımızda</Link>
-        <Link to="/news" className="text-cream hover:text-orange-accent transition-colors font-bold tracking-tight">Haberler</Link>
+        <Link to="/about" className="text-cream hover:text-orange-accent transition-colors font-bold tracking-tight">{cmsData.ui.aboutLabel}</Link>
+        <Link to="/news" className="text-cream hover:text-orange-accent transition-colors font-bold tracking-tight">{cmsData.ui.newsLabel}</Link>
       </nav>
 
       <div className="flex items-center gap-4">
