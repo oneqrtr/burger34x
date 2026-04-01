@@ -7,6 +7,7 @@ import { fallbackCmsData } from '../constants/fallbackCmsData';
 import { formatTry } from '../utils/formatPrice';
 import { getWhatsAppOrderNumber } from '../utils/whatsappOrder';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../utils/placeholderImage';
+import { publicAssetUrl } from '../utils/publicAssetUrl';
 
 export const CartDrawer: React.FC = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeItem, totalPrice, clearCart } = useCartStore();
@@ -129,7 +130,7 @@ export const CartDrawer: React.FC = () => {
                   <div key={item.id} className="flex gap-4 items-center">
                     <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/5 shrink-0">
                       <img
-                        src={item.image?.trim() ? item.image : PRODUCT_IMAGE_PLACEHOLDER}
+                        src={item.image?.trim() ? publicAssetUrl(item.image.trim()) : PRODUCT_IMAGE_PLACEHOLDER}
                         alt={item.name}
                         className="w-full h-full object-cover"
                       />

@@ -4,6 +4,7 @@ import { useCartStore } from '../store/cartStore';
 import { Link } from 'react-router-dom';
 import { useCMSStore } from '../store/cmsStore';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
+import { publicAssetUrl } from '../utils/publicAssetUrl';
 
 export const Header: React.FC = () => {
   const setIsCartOpen = useCartStore(state => state.setIsOpen);
@@ -19,7 +20,7 @@ export const Header: React.FC = () => {
     <header className="fixed top-0 w-full z-50 bg-dark-bg/60 backdrop-blur-xl flex justify-between items-center px-8 py-4">
       <Link to="/" className="flex items-center gap-3">
         <img
-          src="/logo_final_vectorized.png"
+          src={publicAssetUrl('/logo_final_vectorized.png')}
           alt="Burger34"
           className="h-10 w-auto"
         />

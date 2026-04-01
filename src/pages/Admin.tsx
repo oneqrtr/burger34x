@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useCMSStore } from '../store/cmsStore';
 import { CMSData, Product, BlogPost, AboutStat, SocialLink, Category } from '../types';
 import { uploadCMSImage } from '../services/cmsService';
+import { publicAssetUrl } from '../utils/publicAssetUrl';
 import { Save, Plus, Trash2 } from 'lucide-react';
 
 export const Admin: React.FC = () => {
@@ -356,7 +357,7 @@ export const Admin: React.FC = () => {
       <div className="flex justify-between items-center mb-12">
         <div className="flex items-center gap-4">
           <img
-            src="/logo_final_vectorized.png"
+            src={publicAssetUrl('/logo_final_vectorized.png')}
             alt="Burger34"
             className="h-12 w-auto"
           />
@@ -469,7 +470,11 @@ export const Admin: React.FC = () => {
               {localData.products.map(product => (
                 <div key={product.id} className="bg-dark-bg p-6 rounded-xl border border-white/5 flex gap-6 items-start">
                   <div className="w-32 h-32 rounded-lg overflow-hidden bg-white/5 shrink-0">
-                    <img src={product.image || 'https://via.placeholder.com/150'} alt="" className="w-full h-full object-cover" />
+                    <img
+                      src={product.image ? publicAssetUrl(product.image) : 'https://via.placeholder.com/150'}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="flex-grow grid grid-cols-2 gap-4">
                     <input 

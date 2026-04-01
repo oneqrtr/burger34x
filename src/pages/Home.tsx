@@ -6,6 +6,8 @@ import { useCMSStore } from '../store/cmsStore';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
+import { publicAssetUrl } from '../utils/publicAssetUrl';
+import { PRODUCT_IMAGE_PLACEHOLDER } from '../utils/placeholderImage';
 
 export const Home: React.FC = () => {
   const { data, isLoading, fetchData } = useCMSStore();
@@ -57,7 +59,7 @@ export const Home: React.FC = () => {
               className="relative rounded-xl overflow-hidden shadow-2xl"
             >
               <img 
-                src={cmsData.about.image || '/logo_final.png'} 
+                src={publicAssetUrl(cmsData.about.image || '/logo_final.png')} 
                 alt="Hikayemiz" 
                 className="block w-full h-auto object-contain" 
               />
@@ -101,7 +103,11 @@ export const Home: React.FC = () => {
               className="group cursor-pointer"
             >
               <div className="relative aspect-video overflow-hidden rounded-xl mb-6">
-                <img src={post.image} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                <img
+                  src={post.image?.trim() ? publicAssetUrl(post.image.trim()) : PRODUCT_IMAGE_PLACEHOLDER}
+                  alt={post.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
                 <div className="absolute top-4 right-4 bg-dark-bg/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-orange-accent">
                   {post.category}
                 </div>
