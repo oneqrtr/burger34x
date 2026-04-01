@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useCMSStore } from '../store/cmsStore';
-import { CMSData, Product, BlogPost, AboutStat, SocialLink } from '../types';
+import { CMSData, Product, BlogPost, AboutStat, SocialLink, Category } from '../types';
 import { uploadCMSImage } from '../services/cmsService';
 import { Save, Plus, Trash2 } from 'lucide-react';
 
 export const Admin: React.FC = () => {
-  const { data, isLoading, fetchData, updateData } = useCMSStore();
+  const { data, isLoading, loadError, fetchData, updateData } = useCMSStore();
   const [localData, setLocalData] = useState<CMSData | null>(null);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -67,11 +67,31 @@ export const Admin: React.FC = () => {
     );
   }
 
-  if (isLoading || !localData) return <div className="h-screen flex items-center justify-center">Yönetim yükleniyor…</div>;
+  const waitingForLocalSync = data != null && localData == null;
+
+  if (isLoading || waitingForLocalSync) {
+    return <div className="h-screen flex items-center justify-center">Yönetim yükleniyor…</div>;
+  }
+
+  if (!localData) {
+    return (
+      <div className="pt-32 pb-24 px-8 max-w-lg mx-auto text-center space-y-4">
+        <p className="text-white/80">Panel verisi yüklenemedi.</p>
+        <button
+          type="button"
+          onClick={() => fetchData()}
+          className="bg-burgundy text-white px-6 py-3 rounded-xl font-bold hover:bg-burgundy/80"
+        >
+          Tekrar dene
+        </button>
+      </div>
+    );
+  }
 
   const handleSave = async () => {
-    await updateData(localData);
-    alert('İçerik kaydedildi.');
+    const ok = await updateData(localData);
+    if (ok) alert('İçerik kaydedildi.');
+    else alert('Kayıt başarısız. Sunucu veya ağ hatası olabilir.');
   };
 
   const updateHero = (field: string, value: string) => {
@@ -82,6 +102,11 @@ export const Admin: React.FC = () => {
   };
 
   const addProduct = () => {
+    if (localData.categories.length === 0) {
+      alert('Once kategori ekleyin.');
+      return;
+    }
+
     const newProduct: Product = {
       id: Date.now().toString(),
       categoryId: localData.categories[0]?.id || 'burgers',
@@ -108,6 +133,51 @@ export const Admin: React.FC = () => {
     setLocalData({
       ...localData,
       products: localData.products.map(p => p.id === id ? { ...p, [field]: value } : p)
+    });
+  };
+
+  const addCategory = () => {
+    const newCategory: Category = {
+      id: `cat-${Date.now()}`,
+      name: 'Yeni kategori',
+    };
+    setLocalData({
+      ...localData,
+      categories: [...localData.categories, newCategory],
+    });
+  };
+
+  const updateCategory = (id: string, field: keyof Category, value: string) => {
+    const normalizedValue = field === 'id' ? value.trim().toLowerCase().replace(/\s+/g, '-') : value;
+    setLocalData({
+      ...localData,
+      categories: localData.categories.map((category) =>
+        category.id === id ? { ...category, [field]: normalizedValue } : category
+      ),
+      products:
+        field === 'id'
+          ? localData.products.map((product) =>
+              product.categoryId === id ? { ...product, categoryId: normalizedValue } : product
+            )
+          : localData.products,
+    });
+  };
+
+  const removeCategory = (id: string) => {
+    if (localData.categories.length <= 1) {
+      alert('En az bir kategori kalmali.');
+      return;
+    }
+
+    const fallbackCategoryId = localData.categories.find((c) => c.id !== id)?.id;
+    if (!fallbackCategoryId) return;
+
+    setLocalData({
+      ...localData,
+      categories: localData.categories.filter((category) => category.id !== id),
+      products: localData.products.map((product) =>
+        product.categoryId === id ? { ...product, categoryId: fallbackCategoryId } : product
+      ),
     });
   };
 
@@ -271,6 +341,18 @@ export const Admin: React.FC = () => {
 
   return (
     <div className="pt-32 pb-24 px-8 max-w-7xl mx-auto">
+      {loadError && (
+        <div className="mb-6 rounded-xl border border-orange-accent/40 bg-orange-accent/10 px-4 py-3 text-sm text-cream flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <p className="text-white/90">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => fetchData()}
+            className="shrink-0 rounded-lg bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-white/20"
+          >
+            Yeniden yükle
+          </button>
+        </div>
+      )}
       <div className="flex justify-between items-center mb-12">
         <div className="flex items-center gap-4">
           <img
@@ -336,6 +418,44 @@ export const Admin: React.FC = () => {
 
         {activeTab === 'menu' && (
           <div className="space-y-8">
+            <div className="space-y-4 border-b border-white/10 pb-8">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold">Kategoriler</h3>
+                <button
+                  onClick={addCategory}
+                  className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Kategori ekle
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                {localData.categories.map((category) => (
+                  <div key={category.id} className="bg-dark-bg p-4 rounded-xl border border-white/5 grid grid-cols-12 gap-3 items-center">
+                    <input
+                      type="text"
+                      value={category.id}
+                      onChange={(e) => updateCategory(category.id, 'id', e.target.value)}
+                      placeholder="Kategori id (orn: tavuk)"
+                      className="col-span-5 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={category.name}
+                      onChange={(e) => updateCategory(category.id, 'name', e.target.value)}
+                      placeholder="Kategori adi"
+                      className="col-span-6 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
+                    />
+                    <button
+                      onClick={() => removeCategory(category.id)}
+                      className="col-span-1 p-2 text-white/20 hover:text-red-400 transition-colors justify-self-end"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-bold">Ürünler</h3>
               <button 

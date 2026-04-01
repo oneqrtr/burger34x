@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import { Product } from '../types';
 import { useCartStore } from '../store/cartStore';
 import { formatTry } from '../utils/formatPrice';
+import { PRODUCT_IMAGE_PLACEHOLDER } from '../utils/placeholderImage';
 
 interface ProductCardProps {
   product: Product;
@@ -21,7 +22,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     >
       <div className="aspect-[4/5] overflow-hidden rounded-xl bg-white/5 relative">
         <img 
-          src={product.image} 
+          src={product.image?.trim() ? product.image : PRODUCT_IMAGE_PLACEHOLDER} 
           alt={product.name} 
           className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" 
         />

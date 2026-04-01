@@ -8,12 +8,32 @@ function apiUrl(path: string): string {
   return `${base || ""}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+const CMS_FETCH_TIMEOUT_MS = 12_000;
+
 export async function getCMSData(): Promise<CMSData> {
-  const response = await fetch(apiUrl("/api/cms"), {
-    credentials: "same-origin",
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), CMS_FETCH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(apiUrl("/api/cms"), {
+      credentials: "same-origin",
+      signal: controller.signal,
+    });
+  } catch (e) {
+    window.clearTimeout(timeoutId);
+    throw e;
+  }
+  window.clearTimeout(timeoutId);
+
   if (!response.ok) throw new Error("Failed to fetch CMS data");
-  const incoming = (await response.json()) as Partial<CMSData>;
+
+  let incoming: Partial<CMSData>;
+  try {
+    incoming = (await response.json()) as Partial<CMSData>;
+  } catch {
+    throw new Error("Invalid CMS response");
+  }
   return {
     ...fallbackCmsData,
     ...incoming,
