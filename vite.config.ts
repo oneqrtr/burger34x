@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv, type Plugin} from 'vite';
+import {VitePWA} from 'vite-plugin-pwa';
 
 /** Yalnızca production build çıktısına: mixed content önleme + sıkı CSP (HMR’ı bozmamak için dev’de yok). */
 function securityHeadersPlugin(command: string): Plugin {
@@ -35,7 +36,54 @@ function securityHeadersPlugin(command: string): Plugin {
 export default defineConfig(({mode, command}) => {
   const env = loadEnv(mode, '.', '');
   return {
-    plugins: [react(), tailwindcss(), securityHeadersPlugin(command)],
+    plugins: [
+      react(),
+      tailwindcss(),
+      securityHeadersPlugin(command),
+      VitePWA({
+        registerType: 'autoUpdate',
+        injectRegister: false,
+        manifest: {
+          name: 'Burger34',
+          short_name: 'Burger34',
+          description: 'Burger34 ozel burger deneyimi',
+          theme_color: '#5a0f1f',
+          background_color: '#0f0f10',
+          display: 'standalone',
+          start_url: '/',
+          scope: '/',
+          icons: [
+            {
+              src: '/pwa-icon.svg',
+              sizes: 'any',
+              type: 'image/svg+xml',
+            },
+            {
+              src: '/pwa-icon-maskable.svg',
+              sizes: 'any',
+              type: 'image/svg+xml',
+              purpose: 'maskable',
+            },
+          ],
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,mp4}'],
+          runtimeCaching: [
+            {
+              urlPattern: ({request}) => request.destination === 'image' || request.destination === 'video',
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'media-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 30,
+                },
+              },
+            },
+          ],
+        },
+      }),
+    ],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },

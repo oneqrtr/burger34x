@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { CartDrawer } from './components/CartDrawer';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import { Home } from './pages/Home';
 import { Menu } from './pages/Menu';
 import { Admin } from './pages/Admin';
@@ -21,6 +22,7 @@ export default function App() {
             {/* Other routes can be added here */}
           </Routes>
         </main>
+        <PWAInstallButton />
         <Footer />
       </div>
     </Router>
