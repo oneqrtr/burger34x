@@ -1,0 +1,116 @@
+import React, { useEffect } from 'react';
+import { motion } from 'motion/react';
+import { Hero } from '../components/Hero';
+import { ProductCard } from '../components/ProductCard';
+import { useCMSStore } from '../store/cmsStore';
+import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+export const Home: React.FC = () => {
+  const { data, isLoading, fetchData } = useCMSStore();
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  if (isLoading || !data) return <div className="h-screen flex items-center justify-center">Yükleniyor…</div>;
+
+  const bestSellers = data.products.filter(p => p.isBestSeller);
+
+  return (
+    <div className="w-full">
+      <Hero title={data.hero.title} subtitle={data.hero.subtitle} />
+
+      {/* Featured Products */}
+      <section className="py-32 px-8 max-w-7xl mx-auto">
+        <div className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h2 className="text-orange-accent text-sm font-bold tracking-widest uppercase mb-2">Özenle seçilmiş</h2>
+            <h3 className="text-5xl font-black tracking-tight">İmza lezzetler</h3>
+          </div>
+          <p className="text-white/60 max-w-xs italic">“Gece yarısı ruhuna özel.”</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+          {bestSellers.map(product => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+          <div className="flex flex-col justify-center p-8 bg-burgundy/20 rounded-xl border border-burgundy/30">
+            <h4 className="text-2xl font-black text-orange-accent mb-4 leading-tight">Tüm menüyü keşfetmek ister misin?</h4>
+            <Link to="/menu" className="flex items-center gap-2 font-bold hover:gap-4 transition-all">
+              Tüm menüyü gör <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section className="bg-white/5 py-32 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="relative">
+            <div className="absolute -top-12 -left-12 w-64 h-64 bg-burgundy/20 rounded-full blur-3xl"></div>
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="relative rounded-xl overflow-hidden shadow-2xl"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1550966842-2849a2201ad0?auto=format&fit=crop&q=80&w=800" 
+                alt="Hikayemiz" 
+                className="w-full aspect-[4/5] object-cover" 
+              />
+            </motion.div>
+          </div>
+          <div className="space-y-8">
+            <h2 className="text-orange-accent text-sm font-bold tracking-widest uppercase">Hikayemiz</h2>
+            <h3 className="text-5xl md:text-6xl font-black tracking-tighter leading-[0.9]">
+              {data.about.title.split(' ').map((word, i) => (
+                word === 'Sıradan' ? <span key={i} className="text-burgundy italic">{word} </span> : word + ' '
+              ))}
+            </h3>
+            <p className="text-lg text-white/60 leading-relaxed max-w-lg whitespace-pre-line">
+              {data.about.content}
+            </p>
+            <div className="flex items-center gap-12 pt-4">
+              {data.about.stats.map((stat, i) => (
+                <div key={i}>
+                  <p className="text-4xl font-black">{stat.value}</p>
+                  <p className="text-xs uppercase tracking-widest text-orange-accent">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Blog / News */}
+      <section className="py-32 px-8 max-w-7xl mx-auto">
+        <div className="mb-16 text-center">
+          <h2 className="text-4xl font-bold tracking-tight mb-4">Gece notları</h2>
+          <div className="w-24 h-1 bg-burgundy mx-auto"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {data.blog.map(post => (
+            <motion.div 
+              key={post.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="group cursor-pointer"
+            >
+              <div className="relative aspect-video overflow-hidden rounded-xl mb-6">
+                <img src={post.image} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                <div className="absolute top-4 right-4 bg-dark-bg/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-orange-accent">
+                  {post.category}
+                </div>
+              </div>
+              <h4 className="text-2xl font-bold group-hover:text-orange-accent transition-colors mb-3">{post.title}</h4>
+              <p className="text-sm text-white/60 line-clamp-2">{post.excerpt}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+};

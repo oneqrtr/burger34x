@@ -1,0 +1,122 @@
+{
+  "hero": {
+    "title": "Burger34",
+    "subtitle": "Gerçek burger. Gerçek lezzet."
+  },
+  "about": {
+    "title": "Sıradan Köftenin Ötesinde.",
+    "content": "Burger34 bir toplantı odasında doğmadı. Neon ışıklı bir sokakta, saat 03:00’te doğdu; gerçek bir şey özleminin paylaşımdan bile güzel olduğu yerde.\n\nMutfak sanatını sinema gibi görüyoruz: her malzeme bir karakter, her tabak bir sahne, tat ise doruk noktası. Kısayol yok, taviz yok. Sadece saf, yalın lezzet.",
+    "stats": [
+      {
+        "label": "Gizli baharat",
+        "value": "34"
+      },
+      {
+        "label": "Çayır otlatma",
+        "value": "%100"
+      }
+    ]
+  },
+  "contact": {
+    "address": "Gece Sokağı No: 34, Kadıköy / İstanbul",
+    "email": "merhaba@burger34.com",
+    "phone": "+90 (212) 555 34 34"
+  },
+  "categories": [
+    {
+      "id": "burgers",
+      "name": "Burgerler"
+    },
+    {
+      "id": "chicken",
+      "name": "Tavuk"
+    },
+    {
+      "id": "drinks",
+      "name": "İçecekler"
+    },
+    {
+      "id": "extras",
+      "name": "Ekstralar"
+    }
+  ],
+  "products": [
+    {
+      "id": "1",
+      "categoryId": "burgers",
+      "name": "Gece Yarısı Trüf",
+      "description": "Olgunlaştırılmış wagyu dana, siyah trüf sosu ve erimiş fontina peyniri, kızarmış brioche arasında.",
+      "price": 18,
+      "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=800",
+      "isBestSeller": true
+    },
+    {
+      "id": "2",
+      "categoryId": "burgers",
+      "name": "Cehennem Ateşi Duble",
+      "description": "Çift köfte, ghost biber peyniri, acı bal ve ferahlatıcı kişniş coleslaw.",
+      "price": 16,
+      "image": "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&q=80&w=800",
+      "isBestSeller": false
+    },
+    {
+      "id": "3",
+      "categoryId": "extras",
+      "name": "Trüflü El Kesim Patates",
+      "description": "Elle kesilmiş patates, trüf yağı ve parmesan ile.",
+      "price": 7,
+      "image": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&q=80&w=800",
+      "isBestSeller": false
+    },
+    {
+      "id": "4",
+      "categoryId": "drinks",
+      "name": "Dumanlı Old Fashioned",
+      "description": "Hickory dumanı ve seçkin burbonla hazırlanan özel kokteyl.",
+      "price": 14,
+      "image": "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=800",
+      "isBestSeller": false
+    },
+    {
+      "id": "1775002753363",
+      "categoryId": "chicken",
+      "name": "Sınırsız Tavuk",
+      "description": "Ürün açıklaması",
+      "price": 349,
+      "image": "",
+      "isBestSeller": true
+    },
+    {
+      "id": "1775002755107",
+      "categoryId": "burgers",
+      "name": "Yeni ürün",
+      "description": "Ürün açıklaması",
+      "price": 0,
+      "image": "",
+      "isBestSeller": false
+    }
+  ],
+  "blog": [
+    {
+      "id": "1",
+      "title": "Gece 03:00 Mesaisinin Sanatı",
+      "excerpt": "Mutfağımızın gece ritmini ve dünya uyurken kusursuzluk için çalışma tutkumuzu keşfedin.",
+      "image": "https://images.unsplash.com/photo-1550966842-2849a2201ad0?auto=format&fit=crop&q=80&w=800",
+      "category": "Kültür"
+    },
+    {
+      "id": "2",
+      "title": "Kuru Dinlendirmenin Önemi",
+      "excerpt": "Lezzetin arkasındaki bilim: 28 günlük kuru dinlendirme sürecimizin imza umami tadımızın sırrı olduğunu anlatıyoruz.",
+      "image": "https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&q=80&w=800",
+      "category": "Süreç"
+    }
+  ],
+  "promotions": [
+    {
+      "id": "1",
+      "title": "Trüf sezonu başladı",
+      "content": "Sınırlı üretim Trüf Umami burgerimizde kış trüfleri ve altın yapraklı aioli bulunuyor."
+    }
+  ]
+}

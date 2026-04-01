@@ -1,0 +1,3 @@
+Contact: mailto:merhaba@burger34.com.tr
+Preferred-Languages: tr, en
+Canonical: https://burger34.com.tr/.well-known/security.txt
