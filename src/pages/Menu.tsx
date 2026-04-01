@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCMSStore } from '../store/cmsStore';
 import { ProductCard } from '../components/ProductCard';
+import { fallbackCmsData } from '../constants/fallbackCmsData';
 
 export const Menu: React.FC = () => {
   const { data, isLoading, fetchData } = useCMSStore();
@@ -11,11 +12,11 @@ export const Menu: React.FC = () => {
     fetchData();
   }, []);
 
-  if (isLoading || !data) return <div className="h-screen flex items-center justify-center">Yükleniyor…</div>;
+  const cmsData = data ?? fallbackCmsData;
 
   const filteredProducts = activeCategory === 'all' 
-    ? data.products 
-    : data.products.filter(p => p.categoryId === activeCategory);
+    ? cmsData.products 
+    : cmsData.products.filter(p => p.categoryId === activeCategory);
 
   return (
     <div className="pt-32 pb-24 px-8 max-w-7xl mx-auto">
@@ -34,7 +35,7 @@ export const Menu: React.FC = () => {
         >
           Tümü
         </button>
-        {data.categories.map(cat => (
+        {cmsData.categories.map(cat => (
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id)}
@@ -55,6 +56,9 @@ export const Menu: React.FC = () => {
           ))}
         </AnimatePresence>
       </div>
+      {isLoading && (
+        <p className="mt-8 text-center text-sm text-white/50">Icerik guncelleniyor...</p>
+      )}
     </div>
   );
 };

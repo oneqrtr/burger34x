@@ -5,6 +5,7 @@ import { ProductCard } from '../components/ProductCard';
 import { useCMSStore } from '../store/cmsStore';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { fallbackCmsData } from '../constants/fallbackCmsData';
 
 export const Home: React.FC = () => {
   const { data, isLoading, fetchData } = useCMSStore();
@@ -13,13 +14,13 @@ export const Home: React.FC = () => {
     fetchData();
   }, []);
 
-  if (isLoading || !data) return <div className="h-screen flex items-center justify-center">Yükleniyor…</div>;
+  const cmsData = data ?? fallbackCmsData;
 
-  const bestSellers = data.products.filter(p => p.isBestSeller);
+  const bestSellers = cmsData.products.filter(p => p.isBestSeller);
 
   return (
     <div className="w-full">
-      <Hero title={data.hero.title} subtitle={data.hero.subtitle} />
+      <Hero title={cmsData.hero.title} subtitle={cmsData.hero.subtitle} />
 
       {/* Featured Products */}
       <section className="py-32 px-8 max-w-7xl mx-auto">
@@ -65,15 +66,15 @@ export const Home: React.FC = () => {
           <div className="space-y-8">
             <h2 className="text-orange-accent text-sm font-bold tracking-widest uppercase">Hikayemiz</h2>
             <h3 className="text-5xl md:text-6xl font-black tracking-tighter leading-[0.9]">
-              {data.about.title.split(' ').map((word, i) => (
+              {cmsData.about.title.split(' ').map((word, i) => (
                 word === 'Sıradan' ? <span key={i} className="text-burgundy italic">{word} </span> : word + ' '
               ))}
             </h3>
             <p className="text-lg text-white/60 leading-relaxed max-w-lg whitespace-pre-line">
-              {data.about.content}
+              {cmsData.about.content}
             </p>
             <div className="flex items-center gap-12 pt-4">
-              {data.about.stats.map((stat, i) => (
+              {cmsData.about.stats.map((stat, i) => (
                 <div key={i}>
                   <p className="text-4xl font-black">{stat.value}</p>
                   <p className="text-xs uppercase tracking-widest text-orange-accent">{stat.label}</p>
@@ -91,7 +92,7 @@ export const Home: React.FC = () => {
           <div className="w-24 h-1 bg-burgundy mx-auto"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {data.blog.map(post => (
+          {cmsData.blog.map(post => (
             <motion.div 
               key={post.id}
               initial={{ opacity: 0, scale: 0.95 }}
@@ -110,6 +111,9 @@ export const Home: React.FC = () => {
             </motion.div>
           ))}
         </div>
+        {isLoading && (
+          <p className="mt-8 text-center text-sm text-white/50">Icerik guncelleniyor...</p>
+        )}
       </section>
     </div>
   );

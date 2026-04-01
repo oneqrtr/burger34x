@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react';
 
 /** Video: public/video/hamburger_final.mp4 */
 const HERO_VIDEO_SRC = '/video/hamburger_final.mp4';
+const HERO_VIDEO_POSTER_SRC = '/video/hamburger_poster.webp';
 
 /** Scroll sahnesi yüksekliği (vh). */
 const HERO_SCROLL_SECTION_VH = 300;
@@ -17,6 +18,7 @@ export const Hero: React.FC<HeroProps> = ({ title, subtitle }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -32,9 +34,21 @@ export const Hero: React.FC<HeroProps> = ({ title, subtitle }) => {
     const tryPlay = () => {
       v.play().catch(() => {});
     };
-    tryPlay();
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          tryPlay();
+          io.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+    io.observe(v);
     v.addEventListener('loadeddata', tryPlay);
-    return () => v.removeEventListener('loadeddata', tryPlay);
+    return () => {
+      v.removeEventListener('loadeddata', tryPlay);
+      io.disconnect();
+    };
   }, []);
 
   return (
@@ -46,6 +60,12 @@ export const Hero: React.FC<HeroProps> = ({ title, subtitle }) => {
       <div className="sticky top-0 flex h-screen min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-dark-bg">
         {/* Video scroll’dan bağımsız: sürekli oynar, scrub yok */}
         <div className="absolute inset-0 z-0">
+          <img
+            src={HERO_VIDEO_POSTER_SRC}
+            alt=""
+            aria-hidden
+            className={`h-full w-full object-cover transition-opacity duration-500 ${videoReady ? 'opacity-0' : 'opacity-100'}`}
+          />
           <video
             ref={videoRef}
             src={HERO_VIDEO_SRC}
@@ -53,10 +73,14 @@ export const Hero: React.FC<HeroProps> = ({ title, subtitle }) => {
             muted
             loop
             playsInline
-            preload="auto"
-            className="h-full w-full object-cover"
+            preload="metadata"
+            poster={HERO_VIDEO_POSTER_SRC}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${videoReady ? 'opacity-100' : 'opacity-0'}`}
             onError={() => setVideoFailed(true)}
-            onLoadedData={() => setVideoFailed(false)}
+            onLoadedData={() => {
+              setVideoFailed(false);
+              setVideoReady(true);
+            }}
           />
         </div>
 

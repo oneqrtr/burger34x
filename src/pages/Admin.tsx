@@ -6,15 +6,62 @@ import { Save, Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 export const Admin: React.FC = () => {
   const { data, isLoading, fetchData, updateData } = useCMSStore();
   const [localData, setLocalData] = useState<CMSData | null>(null);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem('admin-auth') === 'ok');
   const [activeTab, setActiveTab] = useState<'hero' | 'menu' | 'blog' | 'about'>('hero');
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (isAuthenticated) fetchData();
+  }, [isAuthenticated, fetchData]);
 
   useEffect(() => {
     if (data) setLocalData(JSON.parse(JSON.stringify(data)));
   }, [data]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === '131094') {
+      sessionStorage.setItem('admin-auth', 'ok');
+      setIsAuthenticated(true);
+      setAuthError('');
+      return;
+    }
+    setAuthError('Şifre hatalı.');
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('admin-auth');
+    setIsAuthenticated(false);
+    setPassword('');
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="pt-32 pb-24 px-8 max-w-md mx-auto">
+        <div className="bg-white/5 rounded-2xl p-8 border border-white/10">
+          <h1 className="text-3xl font-black mb-2">Yönetim girişi</h1>
+          <p className="text-white/60 text-sm mb-6">Admin paneline erişmek için şifre girin.</p>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Şifre"
+              className="w-full bg-dark-bg border border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-accent"
+            />
+            {authError && <p className="text-red-400 text-sm">{authError}</p>}
+            <button
+              type="submit"
+              className="w-full bg-burgundy text-white px-6 py-3 rounded-xl font-bold hover:bg-burgundy/80 transition-all"
+            >
+              Giriş Yap
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || !localData) return <div className="h-screen flex items-center justify-center">Yönetim yükleniyor…</div>;
 
@@ -71,12 +118,20 @@ export const Admin: React.FC = () => {
     <div className="pt-32 pb-24 px-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-12">
         <h1 className="text-4xl font-black">Yönetim paneli</h1>
-        <button 
-          onClick={handleSave}
-          className="bg-burgundy text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-burgundy/80 transition-all"
-        >
-          <Save className="w-5 h-5" /> Kaydet
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            className="bg-burgundy text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-burgundy/80 transition-all"
+          >
+            <Save className="w-5 h-5" /> Kaydet
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-white/10 text-white px-5 py-3 rounded-xl font-bold hover:bg-white/20 transition-all"
+          >
+            Çıkış
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-4 mb-12 border-b border-white/10">
