@@ -2,13 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { ChevronDown } from 'lucide-react';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
+import { HERO_SCROLL_SECTION_VH } from '../constants/heroLayout';
 
 /** Video: public/video/hamburger_final.mp4 */
 const HERO_VIDEO_SRC = publicAssetUrl('/video/hamburger_final.mp4');
 const HERO_VIDEO_POSTER_SRC = publicAssetUrl('/video/hamburger_poster.webp');
-
-/** Scroll sahnesi yüksekliği (vh). */
-const HERO_SCROLL_SECTION_VH = 300;
 
 interface HeroProps {
   title: string;

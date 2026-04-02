@@ -42,6 +42,9 @@ export async function getCMSData(): Promise<CMSData> {
     ui: {
       ...fallbackCmsData.ui,
       ...(incoming.ui || {}),
+      blogIntro: incoming.ui?.blogIntro ?? fallbackCmsData.ui.blogIntro,
+      footerContactBlurb:
+        incoming.ui?.footerContactBlurb ?? fallbackCmsData.ui.footerContactBlurb,
       socialLinks: incoming.ui?.socialLinks || fallbackCmsData.ui.socialLinks,
     },
   };

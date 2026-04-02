@@ -30,9 +30,13 @@ export interface SocialLink {
 
 export interface UIContent {
   aboutLabel: string;
-  newsLabel: string;
   blogSectionTitle: string;
+  /** Sokak sanatı bölümü giriş metni */
+  blogIntro: string;
+  /** Marka sütunu — Burger34 altı kısa metin */
   footerDescription: string;
+  /** İletişim sütunundaki özet (konum + sipariş satırı) */
+  footerContactBlurb: string;
   socialLinks: SocialLink[];
 }
 

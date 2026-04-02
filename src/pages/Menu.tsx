@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
 import { useCMSStore } from '../store/cmsStore';
 import { ProductCard } from '../components/ProductCard';
+import { MenuPromoMegaStrip } from '../components/MenuPromoMegaStrip';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
 
 export const Menu: React.FC = () => {
@@ -19,10 +20,12 @@ export const Menu: React.FC = () => {
     : cmsData.products.filter(p => p.categoryId === activeCategory);
 
   return (
-    <div className="pt-32 pb-24 px-8 max-w-7xl mx-auto">
+    <div className="pt-20">
+      <MenuPromoMegaStrip />
+      <div className="max-w-7xl mx-auto px-8 pb-24 pt-10">
       <div className="mb-16 text-center">
         <h1 className="text-6xl font-black tracking-tighter mb-4">Menü</h1>
-        <p className="text-orange-accent tracking-[0.3em] uppercase text-sm">Gece lezzetleri</p>
+        <p className="text-orange-accent tracking-[0.3em] uppercase text-sm">Sokak Lezzetleri</p>
       </div>
 
       {/* Category Filter */}
@@ -59,6 +62,7 @@ export const Menu: React.FC = () => {
       {isLoading && (
         <p className="mt-8 text-center text-sm text-white/50">Icerik guncelleniyor...</p>
       )}
+      </div>
     </div>
   );
 };

@@ -38,3 +38,93 @@
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* Diagonal sale şeritleri — kampanya bandı marquee */
+@keyframes sale-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.sale-marquee-track {
+  animation: sale-marquee 110s linear infinite;
+  will-change: transform;
+}
+
+.sale-marquee-track--reverse {
+  animation-direction: reverse;
+  animation-duration: 130s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sale-marquee-track {
+    animation: none;
+  }
+}
+
+/* Menü sayfası — mega şerit + glitch offset */
+@keyframes menu-mega-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.menu-mega-marquee-track {
+  animation: menu-mega-marquee 95s linear infinite;
+  will-change: transform;
+}
+
+@keyframes menu-mega-line-glitch {
+  0%,
+  88%,
+  100% {
+    text-shadow:
+      2px 0 0 rgba(255, 183, 125, 0.45),
+      -2px 0 0 rgba(74, 14, 14, 0.85);
+    filter: none;
+  }
+  90% {
+    text-shadow:
+      4px -1px 0 rgba(255, 183, 125, 0.55),
+      -3px 1px 0 rgba(20, 8, 8, 0.9);
+    filter: hue-rotate(6deg);
+  }
+  92% {
+    text-shadow:
+      -2px 1px 0 rgba(255, 183, 125, 0.35),
+      3px -1px 0 rgba(74, 14, 14, 0.7);
+    filter: none;
+  }
+}
+
+.menu-mega-line {
+  animation: menu-mega-line-glitch 4.8s ease-in-out infinite;
+}
+
+.menu-mega-glitch-bg {
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 183, 125, 0.04) 2px,
+    rgba(255, 183, 125, 0.04) 4px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-mega-marquee-track {
+    animation: none;
+  }
+  .menu-mega-line {
+    animation: none;
+    text-shadow:
+      2px 0 0 rgba(255, 183, 125, 0.35),
+      -1px 0 0 rgba(74, 14, 14, 0.8);
+  }
+}

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Hero } from '../components/Hero';
+import { DiagonalSaleRibbons } from '../components/DiagonalSaleRibbons';
 import { ProductCard } from '../components/ProductCard';
 import { useCMSStore } from '../store/cmsStore';
 import { ArrowRight } from 'lucide-react';
@@ -31,7 +32,7 @@ export const Home: React.FC = () => {
             <h2 className="text-orange-accent text-sm font-bold tracking-widest uppercase mb-2">Özenle seçilmiş</h2>
             <h3 className="text-5xl font-black tracking-tight">İmza lezzetler</h3>
           </div>
-          <p className="text-white/60 max-w-xs italic">“Gece yarısı ruhuna özel.”</p>
+          <p className="text-white/60 max-w-xs italic">“Sokak ruhuna özel.”</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
@@ -47,8 +48,10 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
+      <DiagonalSaleRibbons />
+
       {/* About Section */}
-      <section className="bg-white/5 py-32 overflow-hidden">
+      <section id="about" className="scroll-mt-24 bg-white/5 py-32 overflow-hidden">
         <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="relative">
             <div className="absolute -top-12 -left-12 w-64 h-64 bg-burgundy/20 rounded-full blur-3xl"></div>
@@ -68,9 +71,15 @@ export const Home: React.FC = () => {
           <div className="space-y-8">
             <h2 className="text-orange-accent text-sm font-bold tracking-widest uppercase">Hikayemiz</h2>
             <h3 className="text-5xl md:text-6xl font-black tracking-tighter leading-[0.9]">
-              {cmsData.about.title.split(' ').map((word, i) => (
-                word === 'Sıradan' ? <span key={i} className="text-burgundy italic">{word} </span> : word + ' '
-              ))}
+              {cmsData.about.title.split(' ').map((word, i) =>
+                ['MKP', 'Mustafakemalpaşa'].some((w) => word.includes(w)) ? (
+                  <span key={i} className="text-burgundy italic">
+                    {word}{' '}
+                  </span>
+                ) : (
+                  <React.Fragment key={i}>{word} </React.Fragment>
+                )
+              )}
             </h3>
             <p className="w-full text-lg text-white/60 leading-relaxed whitespace-pre-line">
               {cmsData.about.content}
@@ -90,8 +99,13 @@ export const Home: React.FC = () => {
       {/* Blog / News */}
       <section className="py-32 px-8 max-w-7xl mx-auto">
         <div className="mb-16 text-center">
-          <h2 className="text-4xl font-bold tracking-tight mb-4">{cmsData.ui.blogSectionTitle}</h2>
-          <div className="w-24 h-1 bg-burgundy mx-auto"></div>
+          <h2 className="mb-4 text-4xl font-bold tracking-tight">{cmsData.ui.blogSectionTitle}</h2>
+          <div className="mx-auto h-1 w-24 bg-burgundy" />
+          {cmsData.ui.blogIntro?.trim() ? (
+            <p className="mx-auto mt-8 max-w-2xl text-base leading-relaxed text-white/60 whitespace-pre-line">
+              {cmsData.ui.blogIntro}
+            </p>
+          ) : null}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {cmsData.blog.map(post => (

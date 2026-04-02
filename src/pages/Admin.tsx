@@ -35,12 +35,6 @@ export const Admin: React.FC = () => {
     setAuthError('Şifre hatalı.');
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('admin-auth');
-    setIsAuthenticated(false);
-    setPassword('');
-  };
-
   if (!isAuthenticated) {
     return (
       <div className="pt-32 pb-24 px-8 max-w-md mx-auto">
@@ -189,14 +183,10 @@ export const Admin: React.FC = () => {
     });
   };
 
-  const updateContact = (field: 'address' | 'email' | 'phone', value: string) => {
-    setLocalData({
-      ...localData,
-      contact: { ...localData.contact, [field]: value }
-    });
-  };
-
-  const updateUI = (field: 'aboutLabel' | 'newsLabel' | 'blogSectionTitle' | 'footerDescription', value: string) => {
+  const updateUI = (
+    field: 'aboutLabel' | 'blogSectionTitle' | 'blogIntro' | 'footerDescription' | 'footerContactBlurb',
+    value: string
+  ) => {
     setLocalData({
       ...localData,
       ui: { ...localData.ui, [field]: value }
@@ -341,7 +331,20 @@ export const Admin: React.FC = () => {
   };
 
   return (
-    <div className="pt-32 pb-24 px-8 max-w-7xl mx-auto">
+    <div className="pt-20">
+      <div className="sticky top-20 z-40 border-b border-white/10 bg-dark-bg/90 px-8 py-3 backdrop-blur-xl">
+        <div className="flex justify-start">
+          <button
+            type="button"
+            onClick={handleSave}
+            className="bg-burgundy text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-burgundy/80 transition-all"
+          >
+            <Save className="w-5 h-5" /> Kaydet
+          </button>
+        </div>
+      </div>
+
+      <div className="px-8 pb-24 pt-8 max-w-7xl mx-auto">
       {loadError && (
         <div className="mb-6 rounded-xl border border-orange-accent/40 bg-orange-accent/10 px-4 py-3 text-sm text-cream flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <p className="text-white/90">{loadError}</p>
@@ -354,30 +357,6 @@ export const Admin: React.FC = () => {
           </button>
         </div>
       )}
-      <div className="flex justify-between items-center mb-12">
-        <div className="flex items-center gap-4">
-          <img
-            src={publicAssetUrl('/logo_final_vectorized.png')}
-            alt="Burger34"
-            className="h-12 w-auto"
-          />
-          <h1 className="text-4xl font-black">Yönetim paneli</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            className="bg-burgundy text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-burgundy/80 transition-all"
-          >
-            <Save className="w-5 h-5" /> Kaydet
-          </button>
-          <button
-            onClick={handleLogout}
-            className="bg-white/10 text-white px-5 py-3 rounded-xl font-bold hover:bg-white/20 transition-all"
-          >
-            Çıkış
-          </button>
-        </div>
-      </div>
 
       <div className="flex gap-4 mb-12 border-b border-white/10">
         {(['hero', 'menu', 'blog', 'about'] as const).map(tab => (
@@ -625,52 +604,30 @@ export const Admin: React.FC = () => {
                 />
                 <input
                   type="text"
-                  value={localData.ui.newsLabel}
-                  onChange={(e) => updateUI('newsLabel', e.target.value)}
-                  placeholder="Haberler etiketi"
-                  className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                />
-                <input
-                  type="text"
                   value={localData.ui.blogSectionTitle}
                   onChange={(e) => updateUI('blogSectionTitle', e.target.value)}
-                  placeholder="Gece notlari basligi"
+                  placeholder="Sokak sanati basligi"
                   className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm md:col-span-2"
                 />
               </div>
               <textarea
+                value={localData.ui.blogIntro}
+                onChange={(e) => updateUI('blogIntro', e.target.value)}
+                placeholder="Sokak sanati giris metni"
+                className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-28"
+              />
+              <textarea
                 value={localData.ui.footerDescription}
                 onChange={(e) => updateUI('footerDescription', e.target.value)}
-                placeholder="Footer aciklama metni"
+                placeholder="Marka sutunu — Burger34 alti kisa metin"
                 className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-24"
               />
-            </div>
-
-            <div className="space-y-4 border-t border-white/10 pt-6">
-              <h3 className="text-xl font-bold">Iletisim</h3>
-              <div className="grid grid-cols-1 gap-4">
-                <input
-                  type="text"
-                  value={localData.contact.address}
-                  onChange={(e) => updateContact('address', e.target.value)}
-                  placeholder="Adres"
-                  className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                />
-                <input
-                  type="email"
-                  value={localData.contact.email}
-                  onChange={(e) => updateContact('email', e.target.value)}
-                  placeholder="E-posta"
-                  className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                />
-                <input
-                  type="text"
-                  value={localData.contact.phone}
-                  onChange={(e) => updateContact('phone', e.target.value)}
-                  placeholder="Telefon"
-                  className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                />
-              </div>
+              <textarea
+                value={localData.ui.footerContactBlurb}
+                onChange={(e) => updateUI('footerContactBlurb', e.target.value)}
+                placeholder="Iletisim sutunu ozet metni"
+                className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-24"
+              />
             </div>
 
             <div className="space-y-4 border-t border-white/10 pt-6">
@@ -783,6 +740,7 @@ export const Admin: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
