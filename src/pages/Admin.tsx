@@ -158,7 +158,7 @@ export const Admin: React.FC = () => {
     return <div className="h-screen flex items-center justify-center">Panel yükleniyor…</div>;
   }
 
-  const updateProduct = (id: string, field: keyof Product, value: string | number | boolean) => {
+  const updateProduct = (id: string, field: keyof Product, value: string | number | boolean | string[]) => {
     setLocalData((prev) => {
       if (!prev) return prev;
       return {
@@ -392,6 +392,22 @@ export const Admin: React.FC = () => {
                         Çok satan
                       </label>
                       <textarea value={product.description} onChange={(e) => updateProduct(product.id, 'description', e.target.value)} className="col-span-2 bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-20" />
+                      <input
+                        type="text"
+                        value={(product.ingredients || []).join(', ')}
+                        onChange={(e) =>
+                          updateProduct(
+                            product.id,
+                            'ingredients',
+                            e.target.value
+                              .split(',')
+                              .map((x) => x.trim())
+                              .filter(Boolean),
+                          )
+                        }
+                        placeholder="İçindekiler (virgül ile)"
+                        className="col-span-2 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
+                      />
                       <div className="col-span-2">
                         <input
                           type="file"

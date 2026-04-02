@@ -10,6 +10,7 @@ interface CartStore {
   updateQuantity: (productId: string, delta: number) => void;
   clearCart: () => void;
   totalPrice: () => number;
+  toggleRemovedIngredient: (productId: string, ingredient: string) => void;
 }
 
 export const useCartStore = create<CartStore>((set, get) => ({
@@ -25,7 +26,10 @@ export const useCartStore = create<CartStore>((set, get) => ({
         )
       };
     }
-    return { items: [...state.items, { ...product, quantity: 1 }], isOpen: true };
+    return {
+      items: [...state.items, { ...product, quantity: 1, removedIngredients: [] }],
+      isOpen: true
+    };
   }),
   removeItem: (productId) => set((state) => ({
     items: state.items.filter(item => item.id !== productId)
@@ -46,4 +50,18 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }),
   clearCart: () => set({ items: [] }),
   totalPrice: () => get().items.reduce((total, item) => total + item.price * item.quantity, 0),
+  toggleRemovedIngredient: (productId, ingredient) =>
+    set((state) => ({
+      items: state.items.map((item) => {
+        if (item.id !== productId) return item;
+        const current = item.removedIngredients || [];
+        const exists = current.includes(ingredient);
+        return {
+          ...item,
+          removedIngredients: exists
+            ? current.filter((x) => x !== ingredient)
+            : [...current, ingredient],
+        };
+      }),
+    })),
 }));

@@ -8,7 +8,6 @@ import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
-import { PRODUCT_IMAGE_PLACEHOLDER } from '../utils/placeholderImage';
 
 export const Home: React.FC = () => {
   const { data, isLoading, fetchData } = useCMSStore();
@@ -116,16 +115,24 @@ export const Home: React.FC = () => {
               viewport={{ once: true }}
               className="group cursor-pointer"
             >
-              <div className="relative aspect-video overflow-hidden rounded-xl mb-6">
-                <img
-                  src={post.image?.trim() ? publicAssetUrl(post.image.trim()) : PRODUCT_IMAGE_PLACEHOLDER}
-                  alt={post.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-                <div className="absolute top-4 right-4 bg-dark-bg/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-orange-accent">
-                  {post.category}
+              {post.image?.trim() ? (
+                <div className="relative aspect-video overflow-hidden rounded-xl mb-6">
+                  <img
+                    src={publicAssetUrl(post.image.trim())}
+                    alt={post.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute top-4 right-4 bg-dark-bg/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-orange-accent">
+                    {post.category}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mb-4">
+                  <span className="inline-block rounded-full bg-dark-bg/80 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-accent">
+                    {post.category}
+                  </span>
+                </div>
+              )}
               <h4 className="text-2xl font-bold group-hover:text-orange-accent transition-colors mb-3">{post.title}</h4>
               <p className="text-sm text-white/60 line-clamp-2">{post.excerpt}</p>
             </motion.div>

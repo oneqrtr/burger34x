@@ -52,6 +52,7 @@ export interface Product {
   description: string;
   price: number;
   image: string;
+  ingredients?: string[];
   isBestSeller: boolean;
 }
 
@@ -124,4 +125,5 @@ export interface PanelSettings {
 
 export interface CartItem extends Product {
   quantity: number;
+  removedIngredients?: string[];
 }

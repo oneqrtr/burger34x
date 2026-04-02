@@ -32,14 +32,117 @@
       }
     ]
   },
-  "categories": [],
-  "products": [],
+  "categories": [
+    { "id": "burger", "name": "Burger" }
+  ],
+  "products": [
+    {
+      "id": "burger-cheeseburger",
+      "categoryId": "burger",
+      "name": "CHEESEBURGER",
+      "description": "100g sulu dana köfte, eriyen cheddar, karamelize soğan ve turşunun dengesiyle klasik ve tatmin edici bir lezzet.",
+      "price": 270,
+      "image": "/burger/cheeseburger.png",
+      "ingredients": ["Welly Sos", "Cheddar Peyniri", "Yeşillik", "Karamelize Soğan", "Turşu"],
+      "isBestSeller": false
+    },
+    {
+      "id": "burger-mushroom-burger",
+      "categoryId": "burger",
+      "name": "MUSHROOM BURGER",
+      "description": "100g dana köfte, sotelenmiş mantar ve cheddar ile yumuşak ve aromatik bir lezzet sunar.",
+      "price": 280,
+      "image": "",
+      "ingredients": ["Welly Sos", "Cheddar Peyniri", "Yeşillik", "Karamelize Soğan", "Mantar"],
+      "isBestSeller": false
+    },
+    {
+      "id": "burger-steak-burger",
+      "categoryId": "burger",
+      "name": "STEAK BURGER",
+      "description": "200g dana köfte, cheddar, karamelize soğan ve turşu ile dengeli ve doyurucu bir lezzet sunar.",
+      "price": 360,
+      "image": "",
+      "ingredients": ["Welly Sos", "Cheddar Peyniri", "Yeşillik", "Karamelize Soğan", "Turşu"],
+      "isBestSeller": false
+    },
+    {
+      "id": "burger-cift-kat",
+      "categoryId": "burger",
+      "name": "ÇİFT KAT BURGER",
+      "description": "İki kat 100g dana köfte, bol cheddar ve özel sosla gerçek bir burger deneyimi.",
+      "price": 370,
+      "image": "",
+      "ingredients": ["Welly Sos", "Cheddar Peyniri", "Yeşillik", "Karamelize Soğan", "Köz Biber"],
+      "isBestSeller": false
+    },
+    {
+      "id": "burger-34-imza",
+      "categoryId": "burger",
+      "name": "BURGER34 İMZA LEZZET",
+      "description": "200g dana köfte, pastırma ve özel 34 sos ile zenginleşmiş, yoğun ve imza niteliğinde bir burger.",
+      "price": 380,
+      "image": "",
+      "ingredients": ["34 Sos", "Pastırma", "Köz Biber", "Cheddar Peyniri", "Yeşillik", "Karamelize Soğan", "Turşu"],
+      "isBestSeller": true
+    },
+    {
+      "id": "burger-gurme",
+      "categoryId": "burger",
+      "name": "GURME BURGER",
+      "description": "200g dana köfte, dana jambon ve relish sosla birleşir; köz biber ve karamelize soğanla tamamlanır.",
+      "price": 380,
+      "image": "",
+      "ingredients": ["Dana Jambon", "Relish Sos", "Köz Biber", "Cheddar Peyniri", "Yeşillik", "Karamelize Soğan"],
+      "isBestSeller": false
+    },
+    {
+      "id": "burger-uc-kat",
+      "categoryId": "burger",
+      "name": "ÜÇ KAT BURGER",
+      "description": "Toplam 300g dana köfte, cheddar ve özel sosla maksimum doyuruculuk arayanlar için.",
+      "price": 400,
+      "image": "",
+      "ingredients": ["Welly Sos", "Cheddar Peyniri", "Yeşillik", "Karamelize Soğan", "Köz Biber"],
+      "isBestSeller": false
+    },
+    {
+      "id": "burger-mexican",
+      "categoryId": "burger",
+      "name": "MEXICAN BURGER",
+      "description": "100g dana köfte, jalapeno ve köz biberin hafif acılığıyla buluşur; cheddar ve özel sosla dengelenir.",
+      "price": 280,
+      "image": "",
+      "ingredients": ["Welly Sos", "Jalapeno Biberi", "Köz Biberi", "Yeşillik"],
+      "isBestSeller": false
+    },
+    {
+      "id": "burger-tifil",
+      "categoryId": "burger",
+      "name": "TIFIL BURGER",
+      "description": "100g dana köfte, cheddar ve özel sosla hazırlanmış, sade ama güçlü bir klasik.",
+      "price": 260,
+      "image": "",
+      "ingredients": ["Welly Sos", "Cheddar Peyniri", "Yeşillik"],
+      "isBestSeller": false
+    },
+    {
+      "id": "burger-kasap",
+      "categoryId": "burger",
+      "name": "KASAP BURGER",
+      "description": "100g dana köfte, dana jambon ve cheddar ile zenginleşen, karamelize soğanla tamamlanan doyurucu bir burger.",
+      "price": 280,
+      "image": "",
+      "ingredients": ["Welly Sos", "Cheddar Peyniri", "Yeşillik", "Karamelize Soğan", "Dana Jambon"],
+      "isBestSeller": false
+    }
+  ],
   "blog": [
     {
       "id": "1",
       "title": "MKP gecesi: sokağın kalbinde mola",
       "excerpt": "Mustafakemalpaşa'nın akışına uyum sağlayan bir lezzet durağı; hızlı servis, sıcak misafirperverlik.",
-      "image": "https://images.unsplash.com/photo-1550966842-2849a2201ad0?auto=format&fit=crop&q=80&w=800",
+      "image": "",
       "category": "Sokak"
     },
     {

@@ -11,7 +11,7 @@ import { submitPublicOrder } from '../services/orderService';
 import type { OrderPaymentMethod } from '../types';
 
 export const CartDrawer: React.FC = () => {
-  const { items, isOpen, setIsOpen, updateQuantity, removeItem, totalPrice, clearCart } = useCartStore();
+  const { items, isOpen, setIsOpen, updateQuantity, removeItem, totalPrice, clearCart, toggleRemovedIngredient } = useCartStore();
   const { data, fetchData } = useCMSStore();
   const contact = data?.contact ?? fallbackCmsData.contact;
 
@@ -92,7 +92,10 @@ export const CartDrawer: React.FC = () => {
         },
         items: items.map((i) => ({
           productId: i.id,
-          name: i.name,
+          name:
+            i.removedIngredients && i.removedIngredients.length > 0
+              ? `${i.name} (Çıkarılacaklar: ${i.removedIngredients.join(', ')})`
+              : i.name,
           unitPrice: i.price,
           quantity: i.quantity,
         })),
@@ -199,6 +202,32 @@ export const CartDrawer: React.FC = () => {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                      {item.ingredients && item.ingredients.length > 0 ? (
+                        <div className="mt-3">
+                          <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">
+                            İçindekiler (çıkarılacaklara tıkla)
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {item.ingredients.map((ing) => {
+                              const removed = (item.removedIngredients || []).includes(ing);
+                              return (
+                                <button
+                                  key={ing}
+                                  type="button"
+                                  onClick={() => toggleRemovedIngredient(item.id, ing)}
+                                  className={`text-[11px] rounded-full px-2.5 py-1 border transition-all ${
+                                    removed
+                                      ? 'border-red-400/70 bg-red-500/15 text-red-200 line-through'
+                                      : 'border-white/20 bg-white/5 text-white/70 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {ing}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ))
