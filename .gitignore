@@ -1,3 +1,6 @@
+# prebuild ile src/cms.json kopyalanır; repoda tek kaynak src olsun
+public/cms.json
+
 node_modules/
 build/
 dist/

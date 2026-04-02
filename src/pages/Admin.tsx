@@ -6,7 +6,7 @@ import { publicAssetUrl } from '../utils/publicAssetUrl';
 import { Save, Plus, Trash2 } from 'lucide-react';
 
 export const Admin: React.FC = () => {
-  const { data, isLoading, loadError, fetchData, updateData } = useCMSStore();
+  const { data, isLoading, loadError, cmsFromApi, fetchData, updateData } = useCMSStore();
   const [localData, setLocalData] = useState<CMSData | null>(null);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -345,6 +345,18 @@ export const Admin: React.FC = () => {
       </div>
 
       <div className="px-8 pb-24 pt-8 max-w-7xl mx-auto">
+      {!cmsFromApi && !loadError && (
+        <div className="mb-6 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white/80">
+          <p className="font-bold text-cream mb-1">Statik yayın modu</p>
+          <p className="leading-relaxed">
+            Canlı sitede <code className="text-orange-accent/90">/api/cms</code> yok; içerik{' '}
+            <code className="text-orange-accent/90">/cms.json</code> veya derleme anındaki veriden geliyor.
+            Düzenleyebilirsiniz; kalıcı kayıt ve görsel yükleme için Node sunucusunu (ör.{' '}
+            <code className="text-white/50">npm run dev</code>) veya barındırıcıda aynı API’yi çalıştırmanız
+            gerekir.
+          </p>
+        </div>
+      )}
       {loadError && (
         <div className="mb-6 rounded-xl border border-orange-accent/40 bg-orange-accent/10 px-4 py-3 text-sm text-cream flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <p className="text-white/90">{loadError}</p>

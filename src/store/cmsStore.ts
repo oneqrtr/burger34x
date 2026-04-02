@@ -11,6 +11,8 @@ interface CMSStore {
   data: CMSData | null;
   isLoading: boolean;
   loadError: string | null;
+  /** false ise içerik API yerine cms.json / derleme paketinden geldi (statik canlı yayın). */
+  cmsFromApi: boolean;
   fetchData: () => Promise<void>;
   updateData: (newData: CMSData) => Promise<boolean>;
 }
@@ -19,25 +21,32 @@ export const useCMSStore = create<CMSStore>((set) => ({
   data: null,
   isLoading: true,
   loadError: null,
+  cmsFromApi: false,
   fetchData: async () => {
     set({ isLoading: true, loadError: null });
     try {
-      const data = await getCMSData();
-      set({ data, isLoading: false, loadError: null });
+      const { data, fromApi } = await getCMSData();
+      set({
+        data,
+        isLoading: false,
+        loadError: null,
+        cmsFromApi: fromApi,
+      });
     } catch (error) {
       console.error(error);
       set({
         data: cloneFallback(),
         isLoading: false,
         loadError:
-          'İçerik sunucudan yüklenemedi. Şablon açıldı; canlı sitede API yoksa Kaydet çalışmaz. Bağlantınızı veya sunucu yapılandırmasını kontrol edin.',
+          'İçerik yüklenirken beklenmeyen bir hata oluştu. Sayfayı yenileyin veya daha sonra tekrar deneyin.',
+        cmsFromApi: false,
       });
     }
   },
   updateData: async (newData) => {
     try {
       await updateCMSData(newData);
-      set({ data: newData, loadError: null });
+      set({ data: newData, loadError: null, cmsFromApi: true });
       return true;
     } catch (error) {
       console.error(error);

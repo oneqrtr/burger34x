@@ -5,20 +5,29 @@ import {defineConfig, loadEnv, type Plugin} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
 /** Yalnızca production build çıktısına: mixed content önleme + sıkı CSP (HMR’ı bozmamak için dev’de yok). */
-function securityHeadersPlugin(command: string): Plugin {
+function securityHeadersPlugin(command: string, env: Record<string, string>): Plugin {
   return {
     name: 'security-headers',
     transformIndexHtml: {
       order: 'pre',
       handler(html) {
         if (command !== 'build') return html;
+        const connectParts = ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co'];
+        const su = env.VITE_SUPABASE_URL?.trim();
+        if (su) {
+          try {
+            connectParts.push(new URL(su).origin);
+          } catch {
+            /* ignore */
+          }
+        }
         const csp = [
           "default-src 'self'",
           "script-src 'self'",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "img-src 'self' https: data: blob:",
           "font-src 'self' https://fonts.gstatic.com data:",
-          "connect-src 'self'",
+          `connect-src ${connectParts.join(' ')}`,
           "frame-ancestors 'none'",
           "base-uri 'self'",
           "form-action 'self'",
@@ -39,7 +48,7 @@ export default defineConfig(({mode, command}) => {
     plugins: [
       react(),
       tailwindcss(),
-      securityHeadersPlugin(command),
+      securityHeadersPlugin(command, env),
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: false,
