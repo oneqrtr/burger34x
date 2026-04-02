@@ -177,6 +177,9 @@ export const Admin: React.FC = () => {
     try {
       const imageUrl = await uploadCMSImage(file);
       updateProduct(productId, 'image', imageUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Görsel yükleme başarısız.';
+      alert(`${message}\n\nNot: Canlıda yükleme için Supabase Storage bucket ve policy tanımlı olmalı.`);
     } finally {
       setUploadingProductId(null);
     }
@@ -425,6 +428,12 @@ export const Admin: React.FC = () => {
                         type="text"
                         value={product.image || ''}
                         onChange={(e) => updateProduct(product.id, 'image', e.target.value)}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          if (!raw) return;
+                          if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) return;
+                          updateProduct(product.id, 'image', `/${raw}`);
+                        }}
                         placeholder="Görsel yolu / URL (örn: /burger/cheeseburger.png)"
                         className="col-span-2 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
                       />
