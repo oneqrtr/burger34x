@@ -17,7 +17,7 @@ function printOrderTicket(order: AdminOrder): void {
   const lines = order.items
     .map((i) => `<li>${i.name} x ${i.quantity} — ${formatTry(i.quantity * i.unitPrice)}</li>`)
     .join('');
-  const address = `${order.address.neighborhood}, ${order.address.street} No:${order.address.apartmentNo || '-'} ${order.address.buildingName || ''}`;
+  const address = `${order.address.neighborhood}, ${order.address.street} No:${order.address.apartmentNo || '-'} ${order.address.buildingName || ''} Kat:${order.address.floor || '-'} Daire:${order.address.apartmentUnitNo || '-'}`;
 
   popup.document.write(`
     <html><body style="font-family: monospace; padding: 16px;">
@@ -259,7 +259,7 @@ export const Admin: React.FC = () => {
   return (
     <div className="pt-20 min-h-screen">
       <div className="grid grid-cols-12 min-h-[calc(100vh-5rem)]">
-        <aside className="col-span-12 md:col-span-3 border-r border-white/10 bg-black/20 p-4 flex flex-col">
+        <aside className="col-span-12 md:col-span-3 border-r border-white/10 bg-black/20 p-4 flex flex-col md:sticky md:top-20 md:h-[calc(100vh-5rem)]">
           <button
             onClick={() => setActiveSection('orders')}
             className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left font-bold mb-2 ${activeSection === 'orders' ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'}`}
@@ -312,7 +312,7 @@ export const Admin: React.FC = () => {
                     <h3 className="text-xl font-black mb-2">Sipariş #{selectedOrder.orderNo}</h3>
                     <p className="text-sm text-white/70">{selectedOrder.customerName} • {selectedOrder.phone}</p>
                     <p className="text-sm text-white/70 mt-2">
-                      {selectedOrder.address.neighborhood}, {selectedOrder.address.street} No:{selectedOrder.address.apartmentNo || '-'} {selectedOrder.address.buildingName || ''}
+                      {selectedOrder.address.neighborhood}, {selectedOrder.address.street} No:{selectedOrder.address.apartmentNo || '-'} {selectedOrder.address.buildingName || ''} Kat:{selectedOrder.address.floor || '-'} Daire:{selectedOrder.address.apartmentUnitNo || '-'}
                     </p>
                     <p className="text-xs text-white/50 mt-1">{selectedOrder.address.description}</p>
                     {selectedOrder.address.locationUrl ? (

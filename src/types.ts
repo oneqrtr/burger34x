@@ -89,6 +89,8 @@ export interface OrderAddress {
   street: string;
   apartmentNo: string;
   buildingName: string;
+  floor: string;
+  apartmentUnitNo: string;
   description: string;
   locationUrl?: string | null;
 }
