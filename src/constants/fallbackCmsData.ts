@@ -3,7 +3,7 @@ import { CMSData } from "../types";
 export const fallbackCmsData: CMSData = {
   hero: {
     title: "Burger34",
-    subtitle: "Mustafakemalpaşa'da gerçek burger, sokak lezzetleri.",
+    subtitle: "Gerçek burger. Gerçek lezzet.",
   },
   about: {
     title: "MKP sokaklarında hakiki burger.",
