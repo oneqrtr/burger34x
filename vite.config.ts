@@ -68,6 +68,8 @@ export default defineConfig(({mode, command}) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,mp4}'],
+          globIgnores: ['**/art.png'],
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
           runtimeCaching: [
             {
               urlPattern: ({request}) => request.destination === 'image' || request.destination === 'video',
