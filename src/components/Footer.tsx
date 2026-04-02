@@ -31,9 +31,11 @@ export const Footer: React.FC = () => {
     <footer className="bg-dark-bg border-t border-white/10">
       <div className="max-w-7xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-4 gap-12">
         <div className="space-y-4 max-w-sm">
-          <p className="text-lg font-black leading-snug text-cream md:text-xl">
-            Burger34 & Chicken34 & Kurmu34
-          </p>
+          <div className="flex flex-col gap-0.5 text-lg font-black leading-tight text-cream md:text-xl">
+            <span>Burger34</span>
+            <span>Chicken34</span>
+            <span>Kumru34</span>
+          </div>
           <p className="text-sm font-bold uppercase tracking-[0.28em] text-orange-accent">
             Sokak Lezzetleri
           </p>
