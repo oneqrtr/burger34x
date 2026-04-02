@@ -21,7 +21,11 @@ function printOrderTicket(order: AdminOrder): void {
 
   popup.document.write(`
     <html><body style="font-family: monospace; padding: 16px;">
-    <h2>Burger34 Sipariş #${order.orderNo}</h2>
+    <h2 style="margin:0 0 6px 0;">BURGER34 RESTORAN</h2>
+    <div style="margin:0 0 12px 0;">
+      <img src="${publicAssetUrl('/logo_final_vectorized.png')}" alt="Burger34" style="height:42px;width:auto;" />
+    </div>
+    <h3 style="margin:0 0 12px 0;">Sipariş #${order.orderNo}</h3>
     <p><strong>Ad:</strong> ${order.customerName}</p>
     <p><strong>Tel:</strong> ${order.phone}</p>
     <p><strong>Ödeme:</strong> ${order.paymentMethod === 'cash' ? 'Nakit' : 'Kapıda Kredi Kartı'}</p>
@@ -316,9 +320,18 @@ export const Admin: React.FC = () => {
                     </p>
                     <p className="text-xs text-white/50 mt-1">{selectedOrder.address.description}</p>
                     {selectedOrder.address.locationUrl ? (
-                      <a href={selectedOrder.address.locationUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-accent">
-                        Google Maps konumu aç
-                      </a>
+                      <div className="mt-1 flex items-center gap-2">
+                        <a href={selectedOrder.address.locationUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-accent">
+                          Google Maps konumu aç
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(selectedOrder.address.locationUrl || '')}
+                          className="rounded bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/70 hover:bg-white/20"
+                        >
+                          Linki kopyala
+                        </button>
+                      </div>
                     ) : null}
                     <ul className="mt-4 space-y-2 text-sm">
                       {selectedOrder.items.map((i) => (
