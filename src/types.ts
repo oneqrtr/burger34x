@@ -80,6 +80,48 @@ export interface CMSData {
   promotions: Promotion[];
 }
 
+export type OrderPaymentMethod = "cash" | "card_on_delivery";
+export type OrderStatus = "new" | "preparing" | "cancelled";
+
+export interface OrderAddress {
+  neighborhood: string;
+  street: string;
+  apartmentNo: string;
+  buildingName: string;
+  description: string;
+  locationUrl?: string | null;
+}
+
+export interface OrderItemSnapshot {
+  productId: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+export interface PublicOrderPayload {
+  customerName: string;
+  phone: string;
+  address: OrderAddress;
+  paymentMethod: OrderPaymentMethod;
+  items: OrderItemSnapshot[];
+  note?: string;
+}
+
+export interface AdminOrder extends PublicOrderPayload {
+  id: string;
+  orderNo: number;
+  status: OrderStatus;
+  createdAt: string;
+  seenByAdmin: boolean;
+  totalAmount: number;
+}
+
+export interface PanelSettings {
+  notificationSoundEnabled: boolean;
+  autoPrintNewOrder: boolean;
+}
+
 export interface CartItem extends Product {
   quantity: number;
 }

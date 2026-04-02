@@ -1,28 +1,102 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Save, Plus, Trash2, Bell, Settings, UtensilsCrossed, ClipboardList, Printer, Ban, Eye } from 'lucide-react';
 import { useCMSStore } from '../store/cmsStore';
-import { CMSData, Product, BlogPost, AboutStat, SocialLink, Category } from '../types';
+import { Category, CMSData, Product, AdminOrder, PanelSettings } from '../types';
 import { uploadCMSImage } from '../services/cmsService';
+import { fetchAdminOrders, fetchPanelSettings, markOrdersSeen, savePanelSettings, setOrderStatus } from '../services/orderService';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { formatTry } from '../utils/formatPrice';
+import { getSupabaseBrowserClient } from '../lib/supabaseClient';
+
+type PanelSection = 'orders' | 'menu' | 'settings';
+
+function printOrderTicket(order: AdminOrder): void {
+  const popup = window.open('', '_blank', 'width=480,height=800');
+  if (!popup) return;
+
+  const lines = order.items
+    .map((i) => `<li>${i.name} x ${i.quantity} — ${formatTry(i.quantity * i.unitPrice)}</li>`)
+    .join('');
+  const address = `${order.address.neighborhood}, ${order.address.street} No:${order.address.apartmentNo || '-'} ${order.address.buildingName || ''}`;
+
+  popup.document.write(`
+    <html><body style="font-family: monospace; padding: 16px;">
+    <h2>Burger34 Sipariş #${order.orderNo}</h2>
+    <p><strong>Ad:</strong> ${order.customerName}</p>
+    <p><strong>Tel:</strong> ${order.phone}</p>
+    <p><strong>Ödeme:</strong> ${order.paymentMethod === 'cash' ? 'Nakit' : 'Kapıda Kredi Kartı'}</p>
+    <p><strong>Adres:</strong><br/>${address}<br/>${order.address.description || ''}</p>
+    ${order.address.locationUrl ? `<p><strong>Konum:</strong><br/>${order.address.locationUrl}</p>` : ''}
+    <hr/>
+    <ul>${lines}</ul>
+    <hr/>
+    <p><strong>Toplam:</strong> ${formatTry(order.totalAmount)}</p>
+    </body></html>
+  `);
+  popup.document.close();
+  popup.focus();
+  popup.print();
+}
+
+function playBeepOnce(): void {
+  const context = new AudioContext();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = 'sine';
+  oscillator.frequency.value = 920;
+  gain.gain.value = 0.07;
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.2);
+}
 
 export const Admin: React.FC = () => {
-  const { data, isLoading, loadError, cmsFromApi, fetchData, updateData } = useCMSStore();
+  const { data, isLoading, fetchData, updateData } = useCMSStore();
   const [localData, setLocalData] = useState<CMSData | null>(null);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem('admin-auth') === 'ok');
   const [uploadingProductId, setUploadingProductId] = useState<string | null>(null);
-  const [uploadingBlogId, setUploadingBlogId] = useState<string | null>(null);
-  const [isUploadingAboutImage, setIsUploadingAboutImage] = useState(false);
-  const [activeTab, setActiveTab] = useState<'hero' | 'menu' | 'blog' | 'about'>('hero');
+  const [activeSection, setActiveSection] = useState<PanelSection>('orders');
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [settingsData, setSettingsData] = useState<PanelSettings>({
+    notificationSoundEnabled: true,
+    autoPrintNewOrder: false,
+  });
+  const beepIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated) fetchData();
+    if (isAuthenticated) {
+      void fetchData();
+      void fetchAdminOrders().then(setOrders).catch(() => undefined);
+      void fetchPanelSettings().then(setSettingsData).catch(() => undefined);
+    }
   }, [isAuthenticated, fetchData]);
 
   useEffect(() => {
     if (data) setLocalData(JSON.parse(JSON.stringify(data)));
   }, [data]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('orders-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, async () => {
+        const latest = await fetchAdminOrders().catch(() => null);
+        if (!latest) return;
+        setOrders(latest);
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +108,27 @@ export const Admin: React.FC = () => {
     }
     setAuthError('Şifre hatalı.');
   };
+
+  const unseenOrders = useMemo(() => orders.filter((o) => !o.seenByAdmin && o.status === 'new'), [orders]);
+  const selectedOrder = useMemo(
+    () => orders.find((o) => o.id === selectedOrderId) || null,
+    [orders, selectedOrderId],
+  );
+
+  useEffect(() => {
+    if (!settingsData.notificationSoundEnabled || unseenOrders.length === 0) {
+      if (beepIntervalRef.current) {
+        window.clearInterval(beepIntervalRef.current);
+        beepIntervalRef.current = null;
+      }
+      return;
+    }
+
+    if (!beepIntervalRef.current) {
+      playBeepOnce();
+      beepIntervalRef.current = window.setInterval(playBeepOnce, 1800);
+    }
+  }, [settingsData.notificationSoundEnabled, unseenOrders.length]);
 
   if (!isAuthenticated) {
     return (
@@ -50,10 +145,7 @@ export const Admin: React.FC = () => {
               className="w-full bg-dark-bg border border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-accent"
             />
             {authError && <p className="text-red-400 text-sm">{authError}</p>}
-            <button
-              type="submit"
-              className="w-full bg-burgundy text-white px-6 py-3 rounded-xl font-bold hover:bg-burgundy/80 transition-all"
-            >
+            <button type="submit" className="w-full bg-burgundy text-white px-6 py-3 rounded-xl font-bold hover:bg-burgundy/80 transition-all">
               Giriş Yap
             </button>
           </form>
@@ -62,253 +154,18 @@ export const Admin: React.FC = () => {
     );
   }
 
-  const waitingForLocalSync = data != null && localData == null;
-
-  if (isLoading || waitingForLocalSync) {
-    return <div className="h-screen flex items-center justify-center">Yönetim yükleniyor…</div>;
+  if (isLoading || !localData) {
+    return <div className="h-screen flex items-center justify-center">Panel yükleniyor…</div>;
   }
 
-  if (!localData) {
-    return (
-      <div className="pt-32 pb-24 px-8 max-w-lg mx-auto text-center space-y-4">
-        <p className="text-white/80">Panel verisi yüklenemedi.</p>
-        <button
-          type="button"
-          onClick={() => fetchData()}
-          className="bg-burgundy text-white px-6 py-3 rounded-xl font-bold hover:bg-burgundy/80"
-        >
-          Tekrar dene
-        </button>
-      </div>
-    );
-  }
-
-  const handleSave = async () => {
-    const ok = await updateData(localData);
-    if (ok) alert('İçerik kaydedildi.');
-    else alert('Kayıt başarısız. Sunucu veya ağ hatası olabilir.');
-  };
-
-  const updateHero = (field: string, value: string) => {
-    setLocalData({
-      ...localData,
-      hero: { ...localData.hero, [field]: value }
+  const updateProduct = (id: string, field: keyof Product, value: string | number | boolean) => {
+    setLocalData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        products: prev.products.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+      };
     });
-  };
-
-  const addProduct = () => {
-    if (localData.categories.length === 0) {
-      alert('Once kategori ekleyin.');
-      return;
-    }
-
-    const newProduct: Product = {
-      id: Date.now().toString(),
-      categoryId: localData.categories[0]?.id || 'burgers',
-      name: 'Yeni ürün',
-      description: 'Ürün açıklaması',
-      price: 0,
-      image: '',
-      isBestSeller: false
-    };
-    setLocalData({
-      ...localData,
-      products: [...localData.products, newProduct]
-    });
-  };
-
-  const removeProduct = (id: string) => {
-    setLocalData({
-      ...localData,
-      products: localData.products.filter(p => p.id !== id)
-    });
-  };
-
-  const updateProduct = (id: string, field: keyof Product, value: any) => {
-    setLocalData({
-      ...localData,
-      products: localData.products.map(p => p.id === id ? { ...p, [field]: value } : p)
-    });
-  };
-
-  const addCategory = () => {
-    const newCategory: Category = {
-      id: `cat-${Date.now()}`,
-      name: 'Yeni kategori',
-    };
-    setLocalData({
-      ...localData,
-      categories: [...localData.categories, newCategory],
-    });
-  };
-
-  const updateCategory = (id: string, field: keyof Category, value: string) => {
-    const normalizedValue = field === 'id' ? value.trim().toLowerCase().replace(/\s+/g, '-') : value;
-    setLocalData({
-      ...localData,
-      categories: localData.categories.map((category) =>
-        category.id === id ? { ...category, [field]: normalizedValue } : category
-      ),
-      products:
-        field === 'id'
-          ? localData.products.map((product) =>
-              product.categoryId === id ? { ...product, categoryId: normalizedValue } : product
-            )
-          : localData.products,
-    });
-  };
-
-  const removeCategory = (id: string) => {
-    if (localData.categories.length <= 1) {
-      alert('En az bir kategori kalmali.');
-      return;
-    }
-
-    const fallbackCategoryId = localData.categories.find((c) => c.id !== id)?.id;
-    if (!fallbackCategoryId) return;
-
-    setLocalData({
-      ...localData,
-      categories: localData.categories.filter((category) => category.id !== id),
-      products: localData.products.map((product) =>
-        product.categoryId === id ? { ...product, categoryId: fallbackCategoryId } : product
-      ),
-    });
-  };
-
-  const updateAbout = (field: 'title' | 'content' | 'image', value: string) => {
-    setLocalData({
-      ...localData,
-      about: { ...localData.about, [field]: value }
-    });
-  };
-
-  const updateUI = (
-    field: 'aboutLabel' | 'blogSectionTitle' | 'blogIntro' | 'footerDescription' | 'footerContactBlurb',
-    value: string
-  ) => {
-    setLocalData({
-      ...localData,
-      ui: { ...localData.ui, [field]: value }
-    });
-  };
-
-  const updateSocialLink = (id: string, field: keyof SocialLink, value: string | boolean) => {
-    setLocalData({
-      ...localData,
-      ui: {
-        ...localData.ui,
-        socialLinks: localData.ui.socialLinks.map((item) => item.id === id ? { ...item, [field]: value } : item)
-      }
-    });
-  };
-
-  const addSocialLink = () => {
-    const newLink: SocialLink = {
-      id: Date.now().toString(),
-      label: 'Yeni platform',
-      url: '',
-      enabled: true,
-    };
-    setLocalData({
-      ...localData,
-      ui: {
-        ...localData.ui,
-        socialLinks: [...localData.ui.socialLinks, newLink]
-      }
-    });
-  };
-
-  const removeSocialLink = (id: string) => {
-    setLocalData({
-      ...localData,
-      ui: {
-        ...localData.ui,
-        socialLinks: localData.ui.socialLinks.filter((item) => item.id !== id)
-      }
-    });
-  };
-
-  const updateAboutStat = (index: number, field: keyof AboutStat, value: string) => {
-    const nextStats = localData.about.stats.map((stat, i) =>
-      i === index ? { ...stat, [field]: value } : stat
-    );
-    setLocalData({
-      ...localData,
-      about: { ...localData.about, stats: nextStats }
-    });
-  };
-
-  const addAboutStat = () => {
-    setLocalData({
-      ...localData,
-      about: {
-        ...localData.about,
-        stats: [...localData.about.stats, { label: 'Yeni istatistik', value: '0' }]
-      }
-    });
-  };
-
-  const removeAboutStat = (index: number) => {
-    setLocalData({
-      ...localData,
-      about: {
-        ...localData.about,
-        stats: localData.about.stats.filter((_, i) => i !== index)
-      }
-    });
-  };
-
-  const updateBlogPost = (id: string, field: keyof BlogPost, value: string) => {
-    setLocalData({
-      ...localData,
-      blog: localData.blog.map(post => post.id === id ? { ...post, [field]: value } : post)
-    });
-  };
-
-  const addBlogPost = () => {
-    const newPost: BlogPost = {
-      id: Date.now().toString(),
-      title: 'Yeni blog yazisi',
-      excerpt: 'Kisa ozet metni',
-      image: '',
-      category: 'Genel',
-    };
-    setLocalData({
-      ...localData,
-      blog: [...localData.blog, newPost]
-    });
-  };
-
-  const removeBlogPost = (id: string) => {
-    setLocalData({
-      ...localData,
-      blog: localData.blog.filter(post => post.id !== id)
-    });
-  };
-
-  const handleAboutImageUpload = async (file: File) => {
-    setIsUploadingAboutImage(true);
-    try {
-      const imageUrl = await uploadCMSImage(file);
-      updateAbout('image', imageUrl);
-    } catch (error) {
-      alert('Gorsel yuklenemedi.');
-    } finally {
-      setIsUploadingAboutImage(false);
-    }
-  };
-
-  const handleBlogImageUpload = async (blogId: string, file: File) => {
-    setUploadingBlogId(blogId);
-    try {
-      const imageUrl = await uploadCMSImage(file);
-      updateBlogPost(blogId, 'image', imageUrl);
-    } catch (error) {
-      alert('Gorsel yuklenemedi.');
-    } finally {
-      setUploadingBlogId(null);
-    }
   };
 
   const handleProductImageUpload = async (productId: string, file: File) => {
@@ -316,443 +173,276 @@ export const Admin: React.FC = () => {
     try {
       const imageUrl = await uploadCMSImage(file);
       updateProduct(productId, 'image', imageUrl);
-    } catch (error) {
-      alert('Gorsel yuklenemedi.');
     } finally {
       setUploadingProductId(null);
     }
   };
 
-  const tabLabels: Record<'hero' | 'menu' | 'blog' | 'about', string> = {
-    hero: 'Ana görsel',
-    menu: 'Menü',
-    blog: 'Blog',
-    about: 'Hakkımızda',
+  const saveMenu = async () => {
+    const ok = await updateData(localData);
+    alert(ok ? 'Menü kaydedildi.' : 'Kayıt başarısız.');
+  };
+
+  const addCategory = () => {
+    setLocalData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        categories: [...prev.categories, { id: `cat-${Date.now()}`, name: 'Yeni kategori' }],
+      };
+    });
+  };
+
+  const updateCategory = (id: string, field: keyof Category, value: string) => {
+    setLocalData((prev) => {
+      if (!prev) return prev;
+      const normalized = field === 'id' ? value.trim().toLowerCase().replace(/\s+/g, '-') : value;
+      const nextCategories = prev.categories.map((c) => (c.id === id ? { ...c, [field]: normalized } : c));
+      const nextProducts =
+        field === 'id'
+          ? prev.products.map((p) => (p.categoryId === id ? { ...p, categoryId: normalized } : p))
+          : prev.products;
+      return { ...prev, categories: nextCategories, products: nextProducts };
+    });
+  };
+
+  const removeCategory = (id: string) => {
+    setLocalData((prev) => {
+      if (!prev) return prev;
+      const fallback = prev.categories.find((c) => c.id !== id)?.id;
+      if (!fallback) return prev;
+      return {
+        ...prev,
+        categories: prev.categories.filter((c) => c.id !== id),
+        products: prev.products.map((p) => (p.categoryId === id ? { ...p, categoryId: fallback } : p)),
+      };
+    });
+  };
+
+  const addProduct = () => {
+    setLocalData((prev) => {
+      if (!prev || prev.categories.length === 0) return prev;
+      const newProduct: Product = {
+        id: Date.now().toString(),
+        categoryId: prev.categories[0].id,
+        name: 'Yeni ürün',
+        description: '',
+        price: 0,
+        image: '',
+        isBestSeller: false,
+      };
+      return { ...prev, products: [...prev.products, newProduct] };
+    });
+  };
+
+  const removeProduct = (id: string) => {
+    setLocalData((prev) => {
+      if (!prev) return prev;
+      return { ...prev, products: prev.products.filter((p) => p.id !== id) };
+    });
+  };
+
+  const updateOrderAndRefresh = async (orderId: string, status: 'preparing' | 'cancelled') => {
+    await setOrderStatus(orderId, status);
+    const next = await fetchAdminOrders();
+    setOrders(next);
+  };
+
+  const openOrder = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    const target = orders.find((o) => o.id === orderId);
+    if (!target || target.seenByAdmin) return;
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, seenByAdmin: true } : o)));
+    void markOrdersSeen([orderId]).catch(() => undefined);
   };
 
   return (
-    <div className="pt-20">
-      <div className="sticky top-20 z-40 border-b border-white/10 bg-dark-bg/90 px-8 py-3 backdrop-blur-xl">
-        <div className="flex justify-start">
+    <div className="pt-20 min-h-screen">
+      <div className="grid grid-cols-12 min-h-[calc(100vh-5rem)]">
+        <aside className="col-span-12 md:col-span-3 border-r border-white/10 bg-black/20 p-4 flex flex-col">
           <button
-            type="button"
-            onClick={handleSave}
-            className="bg-burgundy text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-burgundy/80 transition-all"
+            onClick={() => setActiveSection('orders')}
+            className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left font-bold mb-2 ${activeSection === 'orders' ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'}`}
           >
-            <Save className="w-5 h-5" /> Kaydet
+            <span className="flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Siparişler</span>
+            {unseenOrders.length > 0 ? <span className="bg-red-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">{unseenOrders.length}</span> : null}
           </button>
-        </div>
-      </div>
-
-      <div className="px-8 pb-24 pt-8 max-w-7xl mx-auto">
-      {!cmsFromApi && !loadError && (
-        <div className="mb-6 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-white/80">
-          <p className="font-bold text-cream mb-1">Statik yayın modu</p>
-          <p className="leading-relaxed">
-            Canlı sitede <code className="text-orange-accent/90">/api/cms</code> yok; içerik{' '}
-            <code className="text-orange-accent/90">/cms.json</code> veya derleme anındaki veriden geliyor.
-            Düzenleyebilirsiniz; kalıcı kayıt ve görsel yükleme için Node sunucusunu (ör.{' '}
-            <code className="text-white/50">npm run dev</code>) veya barındırıcıda aynı API’yi çalıştırmanız
-            gerekir.
-          </p>
-        </div>
-      )}
-      {loadError && (
-        <div className="mb-6 rounded-xl border border-orange-accent/40 bg-orange-accent/10 px-4 py-3 text-sm text-cream flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <p className="text-white/90">{loadError}</p>
           <button
-            type="button"
-            onClick={() => fetchData()}
-            className="shrink-0 rounded-lg bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-white/20"
+            onClick={() => setActiveSection('menu')}
+            className={`w-full flex items-center gap-2 rounded-xl px-4 py-3 text-left font-bold mb-2 ${activeSection === 'menu' ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'}`}
           >
-            Yeniden yükle
+            <UtensilsCrossed className="w-4 h-4" /> Menü Yönetimi
           </button>
-        </div>
-      )}
-
-      <div className="flex gap-4 mb-12 border-b border-white/10">
-        {(['hero', 'menu', 'blog', 'about'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-4 font-bold uppercase tracking-widest text-sm transition-all border-b-2 ${
-              activeTab === tab ? 'border-orange-accent text-orange-accent' : 'border-transparent text-white/40 hover:text-white'
-            }`}
-          >
-            {tabLabels[tab]}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white/5 rounded-2xl p-8">
-        {activeTab === 'hero' && (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-orange-accent font-bold">Ana başlık</label>
-              <input 
-                type="text" 
-                value={localData.hero.title}
-                onChange={(e) => updateHero('title', e.target.value)}
-                className="w-full bg-dark-bg border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-accent"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-orange-accent font-bold">Alt başlık</label>
-              <input 
-                type="text" 
-                value={localData.hero.subtitle}
-                onChange={(e) => updateHero('subtitle', e.target.value)}
-                className="w-full bg-dark-bg border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-accent"
-              />
-            </div>
+          <div className="mt-auto">
+            <button
+              onClick={() => setActiveSection('settings')}
+              className={`w-full flex items-center gap-2 rounded-xl px-4 py-3 text-left font-bold ${activeSection === 'settings' ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'}`}
+            >
+              <Settings className="w-4 h-4" /> Ayarlar
+            </button>
           </div>
-        )}
+        </aside>
 
-        {activeTab === 'menu' && (
-          <div className="space-y-8">
-            <div className="space-y-4 border-b border-white/10 pb-8">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold">Kategoriler</h3>
-                <button
-                  onClick={addCategory}
-                  className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Kategori ekle
-                </button>
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                {localData.categories.map((category) => (
-                  <div key={category.id} className="bg-dark-bg p-4 rounded-xl border border-white/5 grid grid-cols-12 gap-3 items-center">
-                    <input
-                      type="text"
-                      value={category.id}
-                      onChange={(e) => updateCategory(category.id, 'id', e.target.value)}
-                      placeholder="Kategori id (orn: tavuk)"
-                      className="col-span-5 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={category.name}
-                      onChange={(e) => updateCategory(category.id, 'name', e.target.value)}
-                      placeholder="Kategori adi"
-                      className="col-span-6 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                    />
-                    <button
-                      onClick={() => removeCategory(category.id)}
-                      className="col-span-1 p-2 text-white/20 hover:text-red-400 transition-colors justify-self-end"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+        <main className="col-span-12 md:col-span-9 p-6 md:p-8">
+          {activeSection === 'orders' && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                {orders.map((order) => (
+                  <div key={order.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-black">#{order.orderNo} • {order.customerName}</p>
+                        <p className="text-xs text-white/60">{order.phone}</p>
+                      </div>
+                      <span className={`text-xs font-bold uppercase ${order.status === 'new' ? 'text-orange-accent' : order.status === 'preparing' ? 'text-green-400' : 'text-red-400'}`}>
+                        {order.status}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={() => openOrder(order.id)} className="px-3 py-2 text-xs rounded-lg bg-white/10 hover:bg-white/20 flex items-center gap-1"><Eye className="w-3 h-3" /> Görüntüle</button>
+                      <button onClick={() => void updateOrderAndRefresh(order.id, 'preparing')} className="px-3 py-2 text-xs rounded-lg bg-green-600/70 hover:bg-green-600 flex items-center gap-1"><Printer className="w-3 h-3" /> Yazdır</button>
+                      <button onClick={() => void updateOrderAndRefresh(order.id, 'cancelled')} className="px-3 py-2 text-xs rounded-lg bg-red-600/70 hover:bg-red-600 flex items-center gap-1"><Ban className="w-3 h-3" /> İptal</button>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-bold">Ürünler</h3>
-              <button 
-                onClick={addProduct}
-                className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all"
-              >
-                <Plus className="w-4 h-4" /> Ürün ekle
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-6">
-              {localData.products.map(product => (
-                <div key={product.id} className="bg-dark-bg p-6 rounded-xl border border-white/5 flex gap-6 items-start">
-                  <div className="w-32 h-32 rounded-lg overflow-hidden bg-white/5 shrink-0">
-                    <img
-                      src={product.image ? publicAssetUrl(product.image) : 'https://via.placeholder.com/150'}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-grow grid grid-cols-2 gap-4">
-                    <input 
-                      type="text" 
-                      value={product.name}
-                      placeholder="Ürün adı"
-                      onChange={(e) => updateProduct(product.id, 'name', e.target.value)}
-                      className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                    />
-                    <input 
-                      type="number" 
-                      value={product.price}
-                      placeholder="Fiyat"
-                      onChange={(e) => updateProduct(product.id, 'price', parseFloat(e.target.value))}
-                      className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                    />
-                    <select 
-                      value={product.categoryId}
-                      onChange={(e) => updateProduct(product.id, 'categoryId', e.target.value)}
-                      className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
+              <div className="rounded-xl border border-white/10 bg-white/5 p-5 min-h-[260px]">
+                {selectedOrder ? (
+                  <>
+                    <h3 className="text-xl font-black mb-2">Sipariş #{selectedOrder.orderNo}</h3>
+                    <p className="text-sm text-white/70">{selectedOrder.customerName} • {selectedOrder.phone}</p>
+                    <p className="text-sm text-white/70 mt-2">
+                      {selectedOrder.address.neighborhood}, {selectedOrder.address.street} No:{selectedOrder.address.apartmentNo || '-'} {selectedOrder.address.buildingName || ''}
+                    </p>
+                    <p className="text-xs text-white/50 mt-1">{selectedOrder.address.description}</p>
+                    {selectedOrder.address.locationUrl ? (
+                      <a href={selectedOrder.address.locationUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-accent">
+                        Google Maps konumu aç
+                      </a>
+                    ) : null}
+                    <ul className="mt-4 space-y-2 text-sm">
+                      {selectedOrder.items.map((i) => (
+                        <li key={`${i.productId}-${i.name}`} className="flex justify-between">
+                          <span>{i.name} x {i.quantity}</span>
+                          <span>{formatTry(i.quantity * i.unitPrice)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 text-orange-accent font-black">Toplam: {formatTry(selectedOrder.totalAmount)}</p>
+                    <button
+                      onClick={() => printOrderTicket(selectedOrder)}
+                      className="mt-4 px-4 py-2 rounded-lg bg-burgundy hover:bg-burgundy/80 font-bold text-sm"
                     >
-                      {localData.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
-                        checked={product.isBestSeller}
-                        onChange={(e) => updateProduct(product.id, 'isBestSeller', e.target.checked)}
-                        className="rounded bg-white/5 border-white/10 text-burgundy"
-                      />
-                      <label className="text-xs">Çok satan</label>
-                    </div>
-                    <textarea 
-                      value={product.description}
-                      placeholder="Açıklama"
-                      onChange={(e) => updateProduct(product.id, 'description', e.target.value)}
-                      className="col-span-2 bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-20"
-                    />
-                    <div className="col-span-2 space-y-2">
-                      <label className="text-xs uppercase tracking-widest text-orange-accent font-bold">Gorsel yukle</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleProductImageUpload(product.id, file);
-                        }}
-                        className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-burgundy file:px-3 file:py-1 file:text-xs file:font-bold file:text-white"
-                      />
-                      <p className="text-xs text-white/60 break-all">
-                        {uploadingProductId === product.id ? 'Yukleniyor...' : (product.image || 'Henuz gorsel secilmedi.')}
-                      </p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => removeProduct(product.id)}
-                    className="p-2 text-white/20 hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 className="w-5 h-5" />
+                      Yazdır
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-white/60">Sipariş detayını görmek için soldan bir sipariş seçin.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'menu' && (
+            <div className="space-y-6">
+              <div className="sticky top-20 z-20 border-b border-white/10 bg-dark-bg/90 pb-4">
+                <button onClick={saveMenu} className="bg-burgundy text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-burgundy/80 transition-all">
+                  <Save className="w-5 h-5" /> Kaydet
+                </button>
+              </div>
+
+              <div className="space-y-4 border-b border-white/10 pb-8">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-bold">Kategoriler</h3>
+                  <button onClick={addCategory} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all">
+                    <Plus className="w-4 h-4" /> Kategori ekle
                   </button>
                 </div>
-              ))}
+                <div className="grid grid-cols-1 gap-4">
+                  {localData.categories.map((category) => (
+                    <div key={category.id} className="bg-dark-bg p-4 rounded-xl border border-white/5 grid grid-cols-12 gap-3 items-center">
+                      <input type="text" value={category.id} onChange={(e) => updateCategory(category.id, 'id', e.target.value)} className="col-span-5 bg-white/5 border-none rounded-lg px-4 py-2 text-sm" />
+                      <input type="text" value={category.name} onChange={(e) => updateCategory(category.id, 'name', e.target.value)} className="col-span-6 bg-white/5 border-none rounded-lg px-4 py-2 text-sm" />
+                      <button onClick={() => removeCategory(category.id)} className="col-span-1 p-2 text-white/20 hover:text-red-400 transition-colors justify-self-end"><Trash2 className="w-5 h-5" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold">Ürünler</h3>
+                <button onClick={addProduct} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all">
+                  <Plus className="w-4 h-4" /> Ürün ekle
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-6">
+                {localData.products.map((product) => (
+                  <div key={product.id} className="bg-dark-bg p-6 rounded-xl border border-white/5 flex gap-6 items-start">
+                    <div className="w-28 h-28 rounded-lg overflow-hidden bg-white/5 shrink-0">
+                      <img src={product.image ? publicAssetUrl(product.image) : 'https://via.placeholder.com/150'} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-grow grid grid-cols-2 gap-4">
+                      <input type="text" value={product.name} onChange={(e) => updateProduct(product.id, 'name', e.target.value)} className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm" />
+                      <input type="number" value={product.price} onChange={(e) => updateProduct(product.id, 'price', Number(e.target.value) || 0)} className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm" />
+                      <select value={product.categoryId} onChange={(e) => updateProduct(product.id, 'categoryId', e.target.value)} className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm">
+                        {localData.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <label className="flex items-center gap-2 text-xs">
+                        <input type="checkbox" checked={product.isBestSeller} onChange={(e) => updateProduct(product.id, 'isBestSeller', e.target.checked)} />
+                        Çok satan
+                      </label>
+                      <textarea value={product.description} onChange={(e) => updateProduct(product.id, 'description', e.target.value)} className="col-span-2 bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-20" />
+                      <div className="col-span-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) void handleProductImageUpload(product.id, file);
+                          }}
+                          className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-burgundy file:px-3 file:py-1 file:text-xs file:font-bold file:text-white"
+                        />
+                        <p className="text-xs text-white/60 mt-1">{uploadingProductId === product.id ? 'Yükleniyor...' : (product.image || 'Görsel yok')}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => removeProduct(product.id)} className="p-2 text-white/20 hover:text-red-400 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-        {activeTab === 'about' && (
-          <div className="space-y-8">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-orange-accent font-bold">Baslik</label>
-              <input
-                type="text"
-                value={localData.about.title}
-                onChange={(e) => updateAbout('title', e.target.value)}
-                className="w-full bg-dark-bg border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-accent"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-orange-accent font-bold">Icerik</label>
-              <textarea
-                value={localData.about.content}
-                onChange={(e) => updateAbout('content', e.target.value)}
-                className="w-full bg-dark-bg border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-accent h-40"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-orange-accent font-bold">Hakkimizda gorseli yukle</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleAboutImageUpload(file);
-                }}
-                className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-burgundy file:px-3 file:py-1 file:text-xs file:font-bold file:text-white"
-              />
-              <p className="text-xs text-white/60 break-all">
-                {isUploadingAboutImage ? 'Yukleniyor...' : (localData.about.image || 'Mevcut gorsel korunuyor.')}
+          )}
+
+          {activeSection === 'settings' && (
+            <div className="max-w-xl rounded-xl border border-white/10 bg-white/5 p-6 space-y-5">
+              <h3 className="text-xl font-black">Panel Ayarları</h3>
+              <label className="flex items-center justify-between rounded-lg bg-dark-bg px-4 py-3">
+                <span className="flex items-center gap-2"><Bell className="w-4 h-4" /> Bildirim sesi</span>
+                <input
+                  type="checkbox"
+                  checked={settingsData.notificationSoundEnabled}
+                  onChange={(e) => setSettingsData((s) => ({ ...s, notificationSoundEnabled: e.target.checked }))}
+                />
+              </label>
+              <label className="flex items-center justify-between rounded-lg bg-dark-bg px-4 py-3">
+                <span className="flex items-center gap-2"><Printer className="w-4 h-4" /> Yeni siparişte otomatik yazdır</span>
+                <input
+                  type="checkbox"
+                  checked={settingsData.autoPrintNewOrder}
+                  onChange={(e) => setSettingsData((s) => ({ ...s, autoPrintNewOrder: e.target.checked }))}
+                />
+              </label>
+              <button
+                onClick={() => void savePanelSettings(settingsData).then(() => alert('Ayarlar kaydedildi.'))}
+                className="bg-burgundy text-white px-6 py-3 rounded-xl font-bold hover:bg-burgundy/80"
+              >
+                Ayarları Kaydet
+              </button>
+              <p className="text-xs text-white/50">
+                Fiş yazdırma işletim sistemi yazıcı penceresiyle tetiklenir. Termal yazıcı varsayılan yazıcı ise doğrudan hızlanır.
               </p>
             </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold">Istatistikler</h3>
-                <button
-                  onClick={addAboutStat}
-                  className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Istatistik ekle
-                </button>
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                {localData.about.stats.map((stat, index) => (
-                  <div key={`${stat.label}-${index}`} className="bg-dark-bg p-4 rounded-xl border border-white/5 grid grid-cols-12 gap-3 items-center">
-                    <input
-                      type="text"
-                      value={stat.label}
-                      onChange={(e) => updateAboutStat(index, 'label', e.target.value)}
-                      placeholder="Etiket"
-                      className="col-span-5 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={stat.value}
-                      onChange={(e) => updateAboutStat(index, 'value', e.target.value)}
-                      placeholder="Deger"
-                      className="col-span-5 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                    />
-                    <button
-                      onClick={() => removeAboutStat(index)}
-                      className="col-span-2 p-2 text-white/20 hover:text-red-400 transition-colors justify-self-end"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-4 border-t border-white/10 pt-6">
-              <h3 className="text-xl font-bold">Footer ve baslik metinleri</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  value={localData.ui.aboutLabel}
-                  onChange={(e) => updateUI('aboutLabel', e.target.value)}
-                  placeholder="Hakkimizda etiketi"
-                  className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                />
-                <input
-                  type="text"
-                  value={localData.ui.blogSectionTitle}
-                  onChange={(e) => updateUI('blogSectionTitle', e.target.value)}
-                  placeholder="Sokak sanati basligi"
-                  className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm md:col-span-2"
-                />
-              </div>
-              <textarea
-                value={localData.ui.blogIntro}
-                onChange={(e) => updateUI('blogIntro', e.target.value)}
-                placeholder="Sokak sanati giris metni"
-                className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-28"
-              />
-              <textarea
-                value={localData.ui.footerDescription}
-                onChange={(e) => updateUI('footerDescription', e.target.value)}
-                placeholder="Marka sutunu — Burger34 alti kisa metin"
-                className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-24"
-              />
-              <textarea
-                value={localData.ui.footerContactBlurb}
-                onChange={(e) => updateUI('footerContactBlurb', e.target.value)}
-                placeholder="Iletisim sutunu ozet metni"
-                className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-24"
-              />
-            </div>
-
-            <div className="space-y-4 border-t border-white/10 pt-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold">Sosyal linkler</h3>
-                <button
-                  onClick={addSocialLink}
-                  className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all"
-                >
-                  <Plus className="w-4 h-4" /> Link ekle
-                </button>
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                {localData.ui.socialLinks.map((social) => (
-                  <div key={social.id} className="bg-dark-bg p-4 rounded-xl border border-white/5 grid grid-cols-12 gap-3 items-center">
-                    <div className="col-span-1 flex justify-center">
-                      <input
-                        type="checkbox"
-                        checked={social.enabled}
-                        onChange={(e) => updateSocialLink(social.id, 'enabled', e.target.checked)}
-                        className="rounded bg-white/5 border-white/10 text-burgundy"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={social.label}
-                      onChange={(e) => updateSocialLink(social.id, 'label', e.target.value)}
-                      placeholder="Platform"
-                      className="col-span-4 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={social.url}
-                      onChange={(e) => updateSocialLink(social.id, 'url', e.target.value)}
-                      placeholder="Link URL"
-                      className="col-span-6 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                    />
-                    <button
-                      onClick={() => removeSocialLink(social.id)}
-                      className="col-span-1 p-2 text-white/20 hover:text-red-400 transition-colors justify-self-end"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'blog' && (
-          <div className="space-y-8">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-bold">Blog yazilari</h3>
-              <button
-                onClick={addBlogPost}
-                className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all"
-              >
-                <Plus className="w-4 h-4" /> Yazi ekle
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-6">
-              {localData.blog.map((post) => (
-                <div key={post.id} className="bg-dark-bg p-6 rounded-xl border border-white/5 grid grid-cols-1 gap-4">
-                  <input
-                    type="text"
-                    value={post.title}
-                    onChange={(e) => updateBlogPost(post.id, 'title', e.target.value)}
-                    placeholder="Baslik"
-                    className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                  />
-                  <textarea
-                    value={post.excerpt}
-                    onChange={(e) => updateBlogPost(post.id, 'excerpt', e.target.value)}
-                    placeholder="Ozet"
-                    className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm h-24"
-                  />
-                  <input
-                    type="text"
-                    value={post.category}
-                    onChange={(e) => updateBlogPost(post.id, 'category', e.target.value)}
-                    placeholder="Kategori"
-                    className="bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
-                  />
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-orange-accent font-bold">Gorsel yukle</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleBlogImageUpload(post.id, file);
-                      }}
-                      className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-burgundy file:px-3 file:py-1 file:text-xs file:font-bold file:text-white"
-                    />
-                    <p className="text-xs text-white/60 break-all">
-                      {uploadingBlogId === post.id ? 'Yukleniyor...' : (post.image || 'Mevcut gorsel korunuyor.')}
-                    </p>
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => removeBlogPost(post.id)}
-                      className="p-2 text-white/20 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </main>
       </div>
     </div>
   );

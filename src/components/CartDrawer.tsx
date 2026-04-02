@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingBag, Plus, Minus, Trash2, Copy, MessageCircle } from 'lucide-react';
+import { X, ShoppingBag, Plus, Minus, Trash2, MapPinned, WalletCards } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
 import { useCMSStore } from '../store/cmsStore';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
 import { formatTry } from '../utils/formatPrice';
-import { getWhatsAppOrderNumber } from '../utils/whatsappOrder';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../utils/placeholderImage';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
+import { submitPublicOrder } from '../services/orderService';
+import type { OrderPaymentMethod } from '../types';
 
 export const CartDrawer: React.FC = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeItem, totalPrice, clearCart } = useCartStore();
@@ -16,9 +17,17 @@ export const CartDrawer: React.FC = () => {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [street, setStreet] = useState('');
+  const [apartmentNo, setApartmentNo] = useState('');
+  const [buildingName, setBuildingName] = useState('');
+  const [addressDescription, setAddressDescription] = useState('');
+  const [locationUrl, setLocationUrl] = useState('');
   const [note, setNote] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<OrderPaymentMethod>('cash');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [locationError, setLocationError] = useState('');
 
   useEffect(() => {
     if (isOpen) fetchData();
@@ -30,61 +39,83 @@ export const CartDrawer: React.FC = () => {
     }
   }, [isOpen]);
 
-  const buildOrderText = () => {
-    const lines = [
-      '🍔 *Burger34 sipariş*',
-      '',
-      `*Ödeme:* Kapıda nakit`,
-      '',
-      '*Ürünler:*',
-      ...items.map(
-        (i) => `• ${i.name} × ${i.quantity} — ${formatTry(i.price * i.quantity)}`
-      ),
-      '',
-      `*Ara toplam:* ${formatTry(totalPrice())}`,
-      `*Toplam:* ${formatTry(totalPrice())}`,
-      '',
-      '*Müşteri:*',
-      `Ad soyad: ${name.trim()}`,
-      `Telefon: ${phone.trim()}`,
-      `Adres: ${address.trim()}`,
-    ];
-    if (note.trim()) lines.push('', `*Not:* ${note.trim()}`);
-    return lines.join('\n');
-  };
+  const paymentLabel = useMemo(
+    () => (paymentMethod === 'cash' ? 'Nakit' : 'Kapıda Kredi Kartı'),
+    [paymentMethod],
+  );
 
-  const copyOrderText = async () => {
-    const text = buildOrderText();
-    try {
-      await navigator.clipboard.writeText(text);
-      alert('Sipariş özeti panoya kopyalandı. WhatsApp veya telefon ile iletebilirsiniz.');
-    } catch {
-      alert(text);
+  const resolveLocation = async () => {
+    setLocationError('');
+    if (!navigator.geolocation) {
+      setLocationError('Tarayıcınız konum desteği sunmuyor.');
+      return;
     }
+
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+      });
+    }).catch(() => null);
+
+    if (!position) {
+      setLocationError('Konum alınamadı. İzin verdiğinizden emin olun.');
+      return;
+    }
+
+    const lat = position.coords.latitude.toFixed(6);
+    const lng = position.coords.longitude.toFixed(6);
+    setLocationUrl(`https://maps.google.com/?q=${lat},${lng}`);
   };
 
   const handleCompleteOrder = async () => {
     setSubmitError('');
-    if (!name.trim() || !phone.trim() || !address.trim()) {
-      setSubmitError('Lütfen ad soyad, telefon ve teslimat adresini doldurun.');
+    if (!name.trim() || !phone.trim() || !neighborhood.trim() || !street.trim()) {
+      setSubmitError('Ad soyad, telefon, mahalle ve sokak/cadde alanlarını doldurun.');
       return;
     }
 
-    const text = encodeURIComponent(buildOrderText());
-    const wa = getWhatsAppOrderNumber(contact.phone);
+    setIsSubmitting(true);
+    try {
+      await submitPublicOrder({
+        customerName: name.trim(),
+        phone: phone.trim(),
+        paymentMethod,
+        note: note.trim(),
+        address: {
+          neighborhood: neighborhood.trim(),
+          street: street.trim(),
+          apartmentNo: apartmentNo.trim(),
+          buildingName: buildingName.trim(),
+          description: addressDescription.trim(),
+          locationUrl: locationUrl.trim() || null,
+        },
+        items: items.map((i) => ({
+          productId: i.id,
+          name: i.name,
+          unitPrice: i.price,
+          quantity: i.quantity,
+        })),
+      });
 
-    if (wa) {
-      window.open(`https://wa.me/${wa}?text=${text}`, '_blank', 'noopener,noreferrer');
-    } else {
-      await copyOrderText();
+      clearCart();
+      setName('');
+      setPhone('');
+      setNeighborhood('');
+      setStreet('');
+      setApartmentNo('');
+      setBuildingName('');
+      setAddressDescription('');
+      setLocationUrl('');
+      setNote('');
+      setPaymentMethod('cash');
+      setIsOpen(false);
+      alert('Siparişiniz alındı. Kuryemiz en kısa sürede yola çıkacak.');
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Sipariş gönderilemedi.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    clearCart();
-    setName('');
-    setPhone('');
-    setAddress('');
-    setNote('');
-    setIsOpen(false);
   };
 
   return (
@@ -177,7 +208,7 @@ export const CartDrawer: React.FC = () => {
             {items.length > 0 && (
               <div className="space-y-6 pt-6 border-t border-white/10">
                 <p className="text-xs text-white/50 leading-relaxed rounded-lg bg-white/5 px-3 py-2">
-                  Ödeme teslimatta nakit alınır. Kart veya online ödeme yoktur.
+                  Kapıda ödeme tipini seçin: Nakit veya Kapıda Kredi Kartı.
                 </p>
 
                 <div className="space-y-2">
@@ -208,14 +239,88 @@ export const CartDrawer: React.FC = () => {
                     autoComplete="tel"
                     className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
                   />
-                  <textarea
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Teslimat adresi *"
-                    rows={2}
-                    autoComplete="street-address"
+                  <input
+                    type="text"
+                    value={neighborhood}
+                    onChange={(e) => setNeighborhood(e.target.value)}
+                    placeholder="Mahalle *"
                     className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
                   />
+                  <input
+                    type="text"
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
+                    placeholder="Sokak / Cadde *"
+                    className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={apartmentNo}
+                      onChange={(e) => setApartmentNo(e.target.value)}
+                      placeholder="Apartman No"
+                      className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
+                    />
+                    <input
+                      type="text"
+                      value={buildingName}
+                      onChange={(e) => setBuildingName(e.target.value)}
+                      placeholder="Apartman Adı"
+                      className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
+                    />
+                  </div>
+                  <textarea
+                    value={addressDescription}
+                    onChange={(e) => setAddressDescription(e.target.value)}
+                    placeholder="Adres açıklaması (kurye için not)"
+                    rows={2}
+                    className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
+                  />
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => void resolveLocation()}
+                      className="w-full bg-white/10 text-white py-2 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-white/15 transition-all flex items-center justify-center gap-2"
+                    >
+                      <MapPinned className="w-4 h-4" />
+                      Konum paylaş (Google Maps)
+                    </button>
+                    {locationUrl ? (
+                      <a
+                        href={locationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-orange-accent break-all"
+                      >
+                        {locationUrl}
+                      </a>
+                    ) : null}
+                    {locationError ? <p className="text-red-400 text-xs">{locationError}</p> : null}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('cash')}
+                      className={`rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-widest transition-all ${
+                        paymentMethod === 'cash'
+                          ? 'bg-burgundy text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/15'
+                      }`}
+                    >
+                      Nakit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('card_on_delivery')}
+                      className={`rounded-xl px-3 py-3 text-xs font-bold uppercase tracking-widest transition-all ${
+                        paymentMethod === 'card_on_delivery'
+                          ? 'bg-burgundy text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/15'
+                      }`}
+                    >
+                      Kapıda Kredi Kartı
+                    </button>
+                  </div>
                   <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
@@ -230,30 +335,12 @@ export const CartDrawer: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleCompleteOrder}
+                  disabled={isSubmitting}
                   className="w-full bg-burgundy text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-burgundy/80 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                  <MessageCircle className="w-5 h-5" />
-                  Siparişi tamamla
+                  <WalletCards className="w-5 h-5" />
+                  {isSubmitting ? 'Gönderiliyor...' : `Siparişi tamamla (${paymentLabel})`}
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!name.trim() || !phone.trim() || !address.trim()) {
-                      setSubmitError('Lütfen ad soyad, telefon ve teslimat adresini doldurun.');
-                      return;
-                    }
-                    void copyOrderText();
-                  }}
-                  className="w-full bg-white/10 text-white py-3 rounded-xl font-bold text-sm hover:bg-white/15 transition-all flex items-center justify-center gap-2"
-                >
-                  <Copy className="w-4 h-4" />
-                  Metni kopyala
-                </button>
-
-                <p className="text-[10px] text-white/40 text-center leading-relaxed">
-                  WhatsApp için iletişim telefonunu cep numarası (05xx) olarak güncelleyin veya geliştirici ayarında sipariş WhatsApp numarası tanımlayın.
-                </p>
               </div>
             )}
           </motion.aside>

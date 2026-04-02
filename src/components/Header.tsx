@@ -67,7 +67,7 @@ export const Header: React.FC = () => {
         </Link>
         {isAdmin ? (
           <span className="font-black text-cream text-lg md:text-xl tracking-tight truncate">
-            Yönetim Paneli
+            Burger34 Restoran Paneli
           </span>
         ) : null}
       </div>
