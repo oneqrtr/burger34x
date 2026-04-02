@@ -179,7 +179,20 @@ export const Admin: React.FC = () => {
       updateProduct(productId, 'image', imageUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Görsel yükleme başarısız.';
-      alert(`${message}\n\nNot: Canlıda yükleme için Supabase Storage bucket ve policy tanımlı olmalı.`);
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('Dosya okunamadı.'));
+          reader.readAsDataURL(file);
+        });
+        updateProduct(productId, 'image', dataUrl);
+        alert(
+          `${message}\n\nStorage yükleme başarısız olduğu için görsel geçici olarak data URL ile eklendi. Kaydet dersen menü içinde çalışır.`,
+        );
+      } catch {
+        alert(`${message}\n\nNot: Canlıda yükleme için Supabase Storage bucket ve policy tanımlı olmalı.`);
+      }
     } finally {
       setUploadingProductId(null);
     }
