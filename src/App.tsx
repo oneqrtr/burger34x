@@ -11,7 +11,7 @@ import { publicAssetUrl } from './utils/publicAssetUrl';
 
 export default function App() {
   useEffect(() => {
-    const icon = publicAssetUrl('/logo_final_vectorized.png');
+    const icon = publicAssetUrl('/logo.png');
     document.querySelectorAll("link[rel='icon'], link[rel='apple-touch-icon']").forEach((el) => {
       (el as HTMLLinkElement).href = icon;
     });

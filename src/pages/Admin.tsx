@@ -408,6 +408,13 @@ export const Admin: React.FC = () => {
                         placeholder="İçindekiler (virgül ile)"
                         className="col-span-2 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
                       />
+                      <input
+                        type="text"
+                        value={product.image || ''}
+                        onChange={(e) => updateProduct(product.id, 'image', e.target.value)}
+                        placeholder="Görsel yolu / URL (örn: /burger/cheeseburger.png)"
+                        className="col-span-2 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
+                      />
                       <div className="col-span-2">
                         <input
                           type="file"
