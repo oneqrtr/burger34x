@@ -109,6 +109,9 @@ export interface PublicOrderPayload {
   paymentMethod: OrderPaymentMethod;
   items: OrderItemSnapshot[];
   note?: string;
+  kvkkAccepted: boolean;
+  /** Bot tuzağı — boş olmalı */
+  website?: string;
 }
 
 export interface AdminOrder extends PublicOrderPayload {
@@ -120,9 +123,37 @@ export interface AdminOrder extends PublicOrderPayload {
   totalAmount: number;
 }
 
+export type NotificationSoundKey = 'sound1' | 'sound2' | 'sound3';
+
 export interface PanelSettings {
   notificationSoundEnabled: boolean;
   autoPrintNewOrder: boolean;
+  notificationSoundKey: NotificationSoundKey;
+}
+
+export interface CustomerRecord {
+  id: string;
+  phone: string;
+  name: string;
+  address: OrderAddress;
+  kvkkAcceptedAt: string | null;
+  orderCount: number;
+  lastOrderAt: string | null;
+  createdAt: string;
+}
+
+export interface MonthlyStats {
+  year: number;
+  month: number;
+  label: string;
+  orderCount: number;
+  revenue: number;
+}
+
+export interface DashboardStats {
+  allTimeOrderCount: number;
+  allTimeRevenue: number;
+  monthly: MonthlyStats[];
 }
 
 export interface CartItem extends Product {

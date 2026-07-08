@@ -1,59 +1,31 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Save, Plus, Trash2, Bell, Settings, UtensilsCrossed, ClipboardList, Printer, Ban, Eye } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Save, Plus, Trash2, Bell, Settings, UtensilsCrossed, ClipboardList, LayoutDashboard, Users } from 'lucide-react';
 import { useCMSStore } from '../store/cmsStore';
-import { Category, CMSData, Product, AdminOrder, PanelSettings } from '../types';
+import { Category, CMSData, Product, AdminOrder, PanelSettings, CustomerRecord, DashboardStats, NotificationSoundKey } from '../types';
 import { uploadCMSImage } from '../services/cmsService';
-import { fetchAdminOrders, fetchPanelSettings, markOrdersSeen, savePanelSettings, setOrderStatus } from '../services/orderService';
+import {
+  fetchAdminOrders,
+  fetchAdminCustomers,
+  fetchDashboardStats,
+  fetchPanelSettings,
+  markOrdersSeen,
+  savePanelSettings,
+  setOrderStatus,
+} from '../services/orderService';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
-import { formatTry } from '../utils/formatPrice';
 import { getSupabaseBrowserClient } from '../lib/supabaseClient';
+import { playNotificationSound } from '../utils/orderSounds';
+import { OrdersSection } from '../components/admin/OrdersSection';
+import { DashboardSection } from '../components/admin/DashboardSection';
+import { CustomersSection } from '../components/admin/CustomersSection';
 
-type PanelSection = 'orders' | 'menu' | 'settings';
+type PanelSection = 'dashboard' | 'orders' | 'customers' | 'menu' | 'settings';
 
-function printOrderTicket(order: AdminOrder): void {
-  const popup = window.open('', '_blank', 'width=480,height=800');
-  if (!popup) return;
-
-  const lines = order.items
-    .map((i) => `<li>${i.name} x ${i.quantity} — ${formatTry(i.quantity * i.unitPrice)}</li>`)
-    .join('');
-  const address = `${order.address.neighborhood}, ${order.address.street} No:${order.address.apartmentNo || '-'} ${order.address.buildingName || ''} Kat:${order.address.floor || '-'} Daire:${order.address.apartmentUnitNo || '-'}`;
-
-  popup.document.write(`
-    <html><body style="font-family: monospace; padding: 16px;">
-    <h2 style="margin:0 0 6px 0;">BURGER34 RESTORAN</h2>
-    <div style="margin:0 0 12px 0;">
-      <img src="${publicAssetUrl('/logo_final_vectorized.png')}" alt="Burger34" style="height:42px;width:auto;" />
-    </div>
-    <h3 style="margin:0 0 12px 0;">Sipariş #${order.orderNo}</h3>
-    <p><strong>Ad:</strong> ${order.customerName}</p>
-    <p><strong>Tel:</strong> ${order.phone}</p>
-    <p><strong>Ödeme:</strong> ${order.paymentMethod === 'cash' ? 'Nakit' : 'Kapıda Kredi Kartı'}</p>
-    <p><strong>Adres:</strong><br/>${address}<br/>${order.address.description || ''}</p>
-    ${order.address.locationUrl ? `<p><strong>Konum:</strong><br/>${order.address.locationUrl}</p>` : ''}
-    <hr/>
-    <ul>${lines}</ul>
-    <hr/>
-    <p><strong>Toplam:</strong> ${formatTry(order.totalAmount)}</p>
-    </body></html>
-  `);
-  popup.document.close();
-  popup.focus();
-  popup.print();
-}
-
-function playBeepOnce(): void {
-  const context = new AudioContext();
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  oscillator.type = 'sine';
-  oscillator.frequency.value = 920;
-  gain.gain.value = 0.07;
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start();
-  oscillator.stop(context.currentTime + 0.2);
-}
+const SOUND_OPTIONS: Array<{ key: NotificationSoundKey; label: string }> = [
+  { key: 'sound1', label: 'Klasik bip' },
+  { key: 'sound2', label: 'Çift bip' },
+  { key: 'sound3', label: 'Zil' },
+];
 
 export const Admin: React.FC = () => {
   const { data, isLoading, fetchData, updateData } = useCMSStore();
@@ -64,20 +36,46 @@ export const Admin: React.FC = () => {
   const [uploadingProductId, setUploadingProductId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<PanelSection>('orders');
   const [orders, setOrders] = useState<AdminOrder[]>([]);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<CustomerRecord[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [settingsData, setSettingsData] = useState<PanelSettings>({
     notificationSoundEnabled: true,
     autoPrintNewOrder: false,
+    notificationSoundKey: 'sound1',
   });
   const beepIntervalRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      void fetchData();
-      void fetchAdminOrders().then(setOrders).catch(() => undefined);
-      void fetchPanelSettings().then(setSettingsData).catch(() => undefined);
+  const refreshOrders = useCallback(async () => {
+    const next = await fetchAdminOrders();
+    setOrders(next);
+  }, []);
+
+  const refreshCustomers = useCallback(async () => {
+    const next = await fetchAdminCustomers();
+    setCustomers(next);
+  }, []);
+
+  const refreshDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    try {
+      const stats = await fetchDashboardStats();
+      setDashboardStats(stats);
+    } catch {
+      setDashboardStats(null);
+    } finally {
+      setDashboardLoading(false);
     }
-  }, [isAuthenticated, fetchData]);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void fetchData();
+    void refreshOrders().catch(() => undefined);
+    void refreshCustomers().catch(() => undefined);
+    void refreshDashboard().catch(() => undefined);
+    void fetchPanelSettings().then(setSettingsData).catch(() => undefined);
+  }, [isAuthenticated, fetchData, refreshOrders, refreshCustomers, refreshDashboard]);
 
   useEffect(() => {
     if (data) setLocalData(JSON.parse(JSON.stringify(data)));
@@ -91,16 +89,16 @@ export const Admin: React.FC = () => {
     const channel = supabase
       .channel('orders-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, async () => {
-        const latest = await fetchAdminOrders().catch(() => null);
-        if (!latest) return;
-        setOrders(latest);
+        await refreshOrders().catch(() => undefined);
+        await refreshCustomers().catch(() => undefined);
+        await refreshDashboard().catch(() => undefined);
       })
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshOrders, refreshDashboard]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,10 +112,6 @@ export const Admin: React.FC = () => {
   };
 
   const unseenOrders = useMemo(() => orders.filter((o) => !o.seenByAdmin && o.status === 'new'), [orders]);
-  const selectedOrder = useMemo(
-    () => orders.find((o) => o.id === selectedOrderId) || null,
-    [orders, selectedOrderId],
-  );
 
   useEffect(() => {
     if (!settingsData.notificationSoundEnabled || unseenOrders.length === 0) {
@@ -129,10 +123,29 @@ export const Admin: React.FC = () => {
     }
 
     if (!beepIntervalRef.current) {
-      playBeepOnce();
-      beepIntervalRef.current = window.setInterval(playBeepOnce, 1800);
+      playNotificationSound(settingsData.notificationSoundKey);
+      beepIntervalRef.current = window.setInterval(
+        () => playNotificationSound(settingsData.notificationSoundKey),
+        1800,
+      );
     }
-  }, [settingsData.notificationSoundEnabled, unseenOrders.length]);
+  }, [settingsData.notificationSoundEnabled, settingsData.notificationSoundKey, unseenOrders.length]);
+
+  const handleMarkSeen = (orderId: string) => {
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, seenByAdmin: true } : o)));
+    void markOrdersSeen([orderId]).catch(() => undefined);
+  };
+
+  const handleConfirmOrder = async (orderId: string) => {
+    await setOrderStatus(orderId, 'preparing');
+    await refreshOrders();
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    await setOrderStatus(orderId, 'cancelled');
+    await refreshOrders();
+    await refreshDashboard();
+  };
 
   if (!isAuthenticated) {
     return (
@@ -262,114 +275,58 @@ export const Admin: React.FC = () => {
     });
   };
 
-  const updateOrderAndRefresh = async (orderId: string, status: 'preparing' | 'cancelled') => {
-    await setOrderStatus(orderId, status);
-    const next = await fetchAdminOrders();
-    setOrders(next);
-  };
-
-  const openOrder = (orderId: string) => {
-    setSelectedOrderId(orderId);
-    const target = orders.find((o) => o.id === orderId);
-    if (!target || target.seenByAdmin) return;
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, seenByAdmin: true } : o)));
-    void markOrdersSeen([orderId]).catch(() => undefined);
-  };
+  const navButton = (section: PanelSection, label: React.ReactNode) => (
+    <button
+      type="button"
+      onClick={() => setActiveSection(section)}
+      className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left font-bold mb-2 ${
+        activeSection === section ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="pt-20 min-h-screen">
       <div className="grid grid-cols-12 min-h-[calc(100vh-5rem)]">
         <aside className="col-span-12 md:col-span-3 border-r border-white/10 bg-black/20 p-4 flex flex-col md:sticky md:top-20 md:h-[calc(100vh-5rem)]">
-          <button
-            onClick={() => setActiveSection('orders')}
-            className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left font-bold mb-2 ${activeSection === 'orders' ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'}`}
-          >
-            <span className="flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Siparişler</span>
-            {unseenOrders.length > 0 ? <span className="bg-red-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">{unseenOrders.length}</span> : null}
-          </button>
-          <button
-            onClick={() => setActiveSection('menu')}
-            className={`w-full flex items-center gap-2 rounded-xl px-4 py-3 text-left font-bold mb-2 ${activeSection === 'menu' ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'}`}
-          >
-            <UtensilsCrossed className="w-4 h-4" /> Menü Yönetimi
-          </button>
+          {navButton('dashboard', <span className="flex items-center gap-2"><LayoutDashboard className="w-4 h-4" /> Dashboard</span>)}
+          {navButton(
+            'orders',
+            <>
+              <span className="flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Siparişler</span>
+              {unseenOrders.length > 0 ? (
+                <span className="bg-red-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">
+                  {unseenOrders.length}
+                </span>
+              ) : null}
+            </>,
+          )}
+          {navButton('customers', <span className="flex items-center gap-2"><Users className="w-4 h-4" /> Müşteriler</span>)}
+          {navButton('menu', <span className="flex items-center gap-2"><UtensilsCrossed className="w-4 h-4" /> Menü Yönetimi</span>)}
           <div className="mt-auto">
-            <button
-              onClick={() => setActiveSection('settings')}
-              className={`w-full flex items-center gap-2 rounded-xl px-4 py-3 text-left font-bold ${activeSection === 'settings' ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'}`}
-            >
-              <Settings className="w-4 h-4" /> Ayarlar
-            </button>
+            {navButton('settings', <span className="flex items-center gap-2"><Settings className="w-4 h-4" /> Ayarlar</span>)}
           </div>
         </aside>
 
         <main className="col-span-12 md:col-span-9 p-6 md:p-8">
+          {activeSection === 'dashboard' && (
+            <DashboardSection stats={dashboardStats} loading={dashboardLoading} />
+          )}
+
           {activeSection === 'orders' && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                {orders.map((order) => (
-                  <div key={order.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-black">#{order.orderNo} • {order.customerName}</p>
-                        <p className="text-xs text-white/60">{order.phone}</p>
-                      </div>
-                      <span className={`text-xs font-bold uppercase ${order.status === 'new' ? 'text-orange-accent' : order.status === 'preparing' ? 'text-green-400' : 'text-red-400'}`}>
-                        {order.status}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <button onClick={() => openOrder(order.id)} className="px-3 py-2 text-xs rounded-lg bg-white/10 hover:bg-white/20 flex items-center gap-1"><Eye className="w-3 h-3" /> Görüntüle</button>
-                      <button onClick={() => void updateOrderAndRefresh(order.id, 'preparing')} className="px-3 py-2 text-xs rounded-lg bg-green-600/70 hover:bg-green-600 flex items-center gap-1"><Printer className="w-3 h-3" /> Yazdır</button>
-                      <button onClick={() => void updateOrderAndRefresh(order.id, 'cancelled')} className="px-3 py-2 text-xs rounded-lg bg-red-600/70 hover:bg-red-600 flex items-center gap-1"><Ban className="w-3 h-3" /> İptal</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-xl border border-white/10 bg-white/5 p-5 min-h-[260px]">
-                {selectedOrder ? (
-                  <>
-                    <h3 className="text-xl font-black mb-2">Sipariş #{selectedOrder.orderNo}</h3>
-                    <p className="text-sm text-white/70">{selectedOrder.customerName} • {selectedOrder.phone}</p>
-                    <p className="text-sm text-white/70 mt-2">
-                      {selectedOrder.address.neighborhood}, {selectedOrder.address.street} No:{selectedOrder.address.apartmentNo || '-'} {selectedOrder.address.buildingName || ''} Kat:{selectedOrder.address.floor || '-'} Daire:{selectedOrder.address.apartmentUnitNo || '-'}
-                    </p>
-                    <p className="text-xs text-white/50 mt-1">{selectedOrder.address.description}</p>
-                    {selectedOrder.address.locationUrl ? (
-                      <div className="mt-1 flex items-center gap-2">
-                        <a href={selectedOrder.address.locationUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-accent">
-                          Google Maps konumu aç
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => navigator.clipboard.writeText(selectedOrder.address.locationUrl || '')}
-                          className="rounded bg-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white/70 hover:bg-white/20"
-                        >
-                          Linki kopyala
-                        </button>
-                      </div>
-                    ) : null}
-                    <ul className="mt-4 space-y-2 text-sm">
-                      {selectedOrder.items.map((i) => (
-                        <li key={`${i.productId}-${i.name}`} className="flex justify-between">
-                          <span>{i.name} x {i.quantity}</span>
-                          <span>{formatTry(i.quantity * i.unitPrice)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-3 text-orange-accent font-black">Toplam: {formatTry(selectedOrder.totalAmount)}</p>
-                    <button
-                      onClick={() => printOrderTicket(selectedOrder)}
-                      className="mt-4 px-4 py-2 rounded-lg bg-burgundy hover:bg-burgundy/80 font-bold text-sm"
-                    >
-                      Yazdır
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-white/60">Sipariş detayını görmek için soldan bir sipariş seçin.</p>
-                )}
-              </div>
-            </div>
+            <OrdersSection
+              orders={orders}
+              onRefresh={refreshOrders}
+              onMarkSeen={handleMarkSeen}
+              onConfirmOrder={handleConfirmOrder}
+              onCancelOrder={handleCancelOrder}
+            />
+          )}
+
+          {activeSection === 'customers' && (
+            <CustomersSection customers={customers} onRefresh={refreshCustomers} />
           )}
 
           {activeSection === 'menu' && (
@@ -428,10 +385,7 @@ export const Admin: React.FC = () => {
                           updateProduct(
                             product.id,
                             'ingredients',
-                            e.target.value
-                              .split(',')
-                              .map((x) => x.trim())
-                              .filter(Boolean),
+                            e.target.value.split(',').map((x) => x.trim()).filter(Boolean),
                           )
                         }
                         placeholder="İçindekiler (virgül ile)"
@@ -447,7 +401,7 @@ export const Admin: React.FC = () => {
                           if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) return;
                           updateProduct(product.id, 'image', `/${raw}`);
                         }}
-                        placeholder="Görsel yolu / URL (örn: /burger/cheeseburger.png)"
+                        placeholder="Görsel yolu / URL"
                         className="col-span-2 bg-white/5 border-none rounded-lg px-4 py-2 text-sm"
                       />
                       <div className="col-span-2">
@@ -460,7 +414,7 @@ export const Admin: React.FC = () => {
                           }}
                           className="w-full bg-white/5 border-none rounded-lg px-4 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-burgundy file:px-3 file:py-1 file:text-xs file:font-bold file:text-white"
                         />
-                        <p className="text-xs text-white/60 mt-1">{uploadingProductId === product.id ? 'Yükleniyor...' : (product.image || 'Görsel yok')}</p>
+                        <p className="text-xs text-white/60 mt-1">{uploadingProductId === product.id ? 'Yükleniyor...' : (product.image ? 'Görsel tanımlı' : 'Görsel yok')}</p>
                       </div>
                     </div>
                     <button onClick={() => removeProduct(product.id)} className="p-2 text-white/20 hover:text-red-400 transition-colors"><Trash2 className="w-5 h-5" /></button>
@@ -481,8 +435,26 @@ export const Admin: React.FC = () => {
                   onChange={(e) => setSettingsData((s) => ({ ...s, notificationSoundEnabled: e.target.checked }))}
                 />
               </label>
+              <div className="rounded-lg bg-dark-bg px-4 py-3 space-y-2">
+                <p className="text-sm font-bold">Bildirim sesi seçeneği</p>
+                {SOUND_OPTIONS.map((opt) => (
+                  <label key={opt.key} className="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="notification-sound"
+                      checked={settingsData.notificationSoundKey === opt.key}
+                      onChange={() => {
+                        setSettingsData((s) => ({ ...s, notificationSoundKey: opt.key }));
+                        playNotificationSound(opt.key);
+                      }}
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+                <p className="text-xs text-white/40">MP3 dosyalarını public/sounds/order-1.mp3, order-2.mp3, order-3.mp3 olarak ekleyebilirsiniz.</p>
+              </div>
               <label className="flex items-center justify-between rounded-lg bg-dark-bg px-4 py-3">
-                <span className="flex items-center gap-2"><Printer className="w-4 h-4" /> Yeni siparişte otomatik yazdır</span>
+                <span className="flex items-center gap-2">Yeni siparişte otomatik yazdır</span>
                 <input
                   type="checkbox"
                   checked={settingsData.autoPrintNewOrder}
@@ -495,9 +467,6 @@ export const Admin: React.FC = () => {
               >
                 Ayarları Kaydet
               </button>
-              <p className="text-xs text-white/50">
-                Fiş yazdırma işletim sistemi yazıcı penceresiyle tetiklenir. Termal yazıcı varsayılan yazıcı ise doğrudan hızlanır.
-              </p>
             </div>
           )}
         </main>

@@ -5,15 +5,16 @@ import { useCartStore } from '../store/cartStore';
 import { useCMSStore } from '../store/cmsStore';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
 import { formatTry } from '../utils/formatPrice';
-import { PRODUCT_IMAGE_PLACEHOLDER } from '../utils/placeholderImage';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
+import { productHasImage } from '../utils/productImage';
 import { submitPublicOrder } from '../services/orderService';
+import { loadCustomerProfile, saveCustomerProfile, hasKvkkConsent } from '../utils/customerStorage';
+import { canSubmitOrderNow, markOrderSubmitted } from '../utils/orderSpamGuard';
 import type { OrderPaymentMethod } from '../types';
 
 export const CartDrawer: React.FC = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeItem, totalPrice, clearCart, toggleRemovedIngredient } = useCartStore();
-  const { data, fetchData } = useCMSStore();
-  const contact = data?.contact ?? fallbackCmsData.contact;
+  const { fetchData } = useCMSStore();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,6 +27,8 @@ export const CartDrawer: React.FC = () => {
   const [addressDescription, setAddressDescription] = useState('');
   const [locationUrl, setLocationUrl] = useState('');
   const [note, setNote] = useState('');
+  const [website, setWebsite] = useState('');
+  const [kvkkAccepted, setKvkkAccepted] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<OrderPaymentMethod>('cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -38,13 +41,52 @@ export const CartDrawer: React.FC = () => {
   useEffect(() => {
     if (!isOpen) {
       setSubmitError('');
+      return;
     }
+
+    const saved = loadCustomerProfile();
+    if (!saved) {
+      setKvkkAccepted(false);
+      return;
+    }
+
+    setName(saved.name);
+    setPhone(saved.phone);
+    setNeighborhood(saved.address.neighborhood);
+    setStreet(saved.address.street);
+    setApartmentNo(saved.address.apartmentNo);
+    setBuildingName(saved.address.buildingName);
+    setFloor(saved.address.floor);
+    setApartmentUnitNo(saved.address.apartmentUnitNo);
+    setAddressDescription(saved.address.description);
+    setLocationUrl(saved.address.locationUrl || '');
+    setKvkkAccepted(Boolean(saved.kvkkAcceptedAt));
   }, [isOpen]);
+
+  const needsKvkk = !hasKvkkConsent();
 
   const paymentLabel = useMemo(
     () => (paymentMethod === 'cash' ? 'Nakit' : 'Kapıda Kredi Kartı'),
     [paymentMethod],
   );
+
+  const persistProfile = (kvkkAt: string | null) => {
+    saveCustomerProfile({
+      name: name.trim(),
+      phone: phone.trim(),
+      address: {
+        neighborhood: neighborhood.trim(),
+        street: street.trim(),
+        apartmentNo: apartmentNo.trim(),
+        buildingName: buildingName.trim(),
+        floor: floor.trim(),
+        apartmentUnitNo: apartmentUnitNo.trim(),
+        description: addressDescription.trim(),
+        locationUrl: locationUrl.trim() || null,
+      },
+      kvkkAcceptedAt: kvkkAt,
+    });
+  };
 
   const resolveLocation = async () => {
     setLocationError('');
@@ -72,8 +114,30 @@ export const CartDrawer: React.FC = () => {
 
   const handleCompleteOrder = async () => {
     setSubmitError('');
-    if (!name.trim() || !phone.trim() || !neighborhood.trim() || !street.trim()) {
-      setSubmitError('Ad soyad, telefon, mahalle ve sokak/cadde alanlarını doldurun.');
+
+    if (website.trim()) return;
+
+    const cooldown = canSubmitOrderNow();
+    if (!cooldown.ok) {
+      setSubmitError(`Lütfen ${cooldown.waitSeconds} saniye bekleyip tekrar deneyin.`);
+      return;
+    }
+
+    if (
+      !name.trim()
+      || !phone.trim()
+      || !neighborhood.trim()
+      || !street.trim()
+      || !apartmentNo.trim()
+      || !floor.trim()
+      || !apartmentUnitNo.trim()
+    ) {
+      setSubmitError('Ad soyad, telefon, mahalle, sokak/cadde, bina no, kat ve daire no alanlarını doldurun.');
+      return;
+    }
+
+    if (needsKvkk && !kvkkAccepted) {
+      setSubmitError('Devam etmek için KVKK onayını işaretleyin.');
       return;
     }
 
@@ -84,6 +148,8 @@ export const CartDrawer: React.FC = () => {
         phone: phone.trim(),
         paymentMethod,
         note: note.trim(),
+        kvkkAccepted: needsKvkk ? kvkkAccepted : true,
+        website,
         address: {
           neighborhood: neighborhood.trim(),
           street: street.trim(),
@@ -105,19 +171,14 @@ export const CartDrawer: React.FC = () => {
         })),
       });
 
+      const kvkkAt = needsKvkk && kvkkAccepted ? new Date().toISOString() : loadCustomerProfile()?.kvkkAcceptedAt || new Date().toISOString();
+      persistProfile(kvkkAt);
+      markOrderSubmitted();
+
       clearCart();
-      setName('');
-      setPhone('');
-      setNeighborhood('');
-      setStreet('');
-      setApartmentNo('');
-      setBuildingName('');
-      setFloor('');
-      setApartmentUnitNo('');
-      setAddressDescription('');
-      setLocationUrl('');
       setNote('');
       setPaymentMethod('cash');
+      setWebsite('');
       setIsOpen(false);
       alert('Siparişiniz alındı. Kuryemiz en kısa sürede yola çıkacak.');
     } catch (e) {
@@ -169,13 +230,17 @@ export const CartDrawer: React.FC = () => {
                 ) : (
                   items.map((item) => (
                     <div key={item.id} className="flex gap-4 items-center">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/5 shrink-0">
-                        <img
-                          src={item.image?.trim() ? publicAssetUrl(item.image.trim()) : PRODUCT_IMAGE_PLACEHOLDER}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                      {productHasImage(item.image) ? (
+                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/5 shrink-0">
+                          <img
+                            src={publicAssetUrl(item.image.trim())}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-white/5 shrink-0" aria-hidden />
+                      )}
                       <div className="flex-grow min-w-0">
                         <div className="flex justify-between items-start gap-2">
                           <h3 className="font-bold text-sm">{item.name}</h3>
@@ -243,6 +308,9 @@ export const CartDrawer: React.FC = () => {
 
               {items.length > 0 && (
                 <div className="space-y-6 pt-6 border-t border-white/10 mt-8 pb-6">
+                  <p className="text-xs text-orange-accent/90 leading-relaxed rounded-lg bg-orange-accent/10 border border-orange-accent/20 px-3 py-2">
+                    Lezzetin size daha çabuk ulaşması için lütfen zorunlu alanları eksiksiz doldurun.
+                  </p>
                   <p className="text-xs text-white/50 leading-relaxed rounded-lg bg-white/5 px-3 py-2">
                     Kapıda ödeme tipini seçin: Nakit veya Kapıda Kredi Kartı.
                   </p>
@@ -259,6 +327,16 @@ export const CartDrawer: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden
+                      className="hidden"
+                    />
+
                     <input
                       type="text"
                       value={name}
@@ -294,7 +372,7 @@ export const CartDrawer: React.FC = () => {
                         type="text"
                         value={apartmentNo}
                         onChange={(e) => setApartmentNo(e.target.value)}
-                        placeholder="Apartman No"
+                        placeholder="Bina No *"
                         className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
                       />
                       <input
@@ -310,14 +388,14 @@ export const CartDrawer: React.FC = () => {
                         type="text"
                         value={floor}
                         onChange={(e) => setFloor(e.target.value)}
-                        placeholder="Kat"
+                        placeholder="Kat *"
                         className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
                       />
                       <input
                         type="text"
                         value={apartmentUnitNo}
                         onChange={(e) => setApartmentUnitNo(e.target.value)}
-                        placeholder="Daire No"
+                        placeholder="Daire No *"
                         className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
                       />
                     </div>
@@ -380,6 +458,21 @@ export const CartDrawer: React.FC = () => {
                       rows={2}
                       className="w-full bg-white/5 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-accent transition-all placeholder:text-white/20"
                     />
+
+                    {needsKvkk ? (
+                      <label className="flex items-start gap-3 rounded-xl bg-white/5 px-3 py-3 text-xs text-white/70 leading-relaxed cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={kvkkAccepted}
+                          onChange={(e) => setKvkkAccepted(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          Kişisel verilerimin siparişin iletilmesi, teslimat ve müşteri hizmetleri amacıyla
+                          işlenmesini kabul ediyorum (KVKK).
+                        </span>
+                      </label>
+                    ) : null}
                   </div>
 
                   {submitError && <p className="text-red-400 text-xs">{submitError}</p>}

@@ -4,8 +4,8 @@ import { Plus } from 'lucide-react';
 import { Product } from '../types';
 import { useCartStore } from '../store/cartStore';
 import { formatTry } from '../utils/formatPrice';
-import { PRODUCT_IMAGE_PLACEHOLDER } from '../utils/placeholderImage';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
+import { productHasImage } from '../utils/productImage';
 
 interface ProductCardProps {
   product: Product;
@@ -13,19 +13,53 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const addItem = useCartStore(state => state.addItem);
+  const hasImage = productHasImage(product.image);
+
+  if (!hasImage) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className="group rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+      >
+        <div className="flex-grow min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <h3 className="text-lg font-bold">{product.name}</h3>
+            <span className="bg-black/40 text-orange-accent px-2.5 py-0.5 rounded-full text-xs font-bold">
+              {formatTry(product.price)}
+            </span>
+            {product.isBestSeller ? (
+              <span className="bg-burgundy text-white px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest">
+                Çok satan
+              </span>
+            ) : null}
+          </div>
+          <p className="text-white/60 text-sm leading-relaxed line-clamp-2">{product.description}</p>
+        </div>
+        <button
+          onClick={() => addItem(product)}
+          className="shrink-0 bg-white/5 hover:bg-burgundy text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Sepete ekle
+        </button>
+      </motion.div>
+    );
+  }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       className="group flex flex-col space-y-4"
     >
       <div className="aspect-[4/5] overflow-hidden rounded-xl bg-white/5 relative">
-        <img 
-          src={product.image?.trim() ? publicAssetUrl(product.image.trim()) : PRODUCT_IMAGE_PLACEHOLDER} 
-          alt={product.name} 
-          className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700" 
+        <img
+          src={publicAssetUrl(product.image.trim())}
+          alt={product.name}
+          className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
         />
         <div className="absolute top-4 right-4">
           <span className="bg-black/40 backdrop-blur-md text-orange-accent px-3 py-1 rounded-full text-xs font-bold tracking-widest">
@@ -45,7 +79,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <p className="text-white/60 text-sm leading-relaxed mb-6 line-clamp-2">
           {product.description}
         </p>
-        <button 
+        <button
           onClick={() => addItem(product)}
           className="w-full bg-white/5 hover:bg-burgundy text-white py-3 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 group/btn"
         >

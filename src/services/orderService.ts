@@ -1,5 +1,16 @@
 import { getSupabaseBrowserClient } from "../lib/supabaseClient";
-import type { AdminOrder, OrderAddress, OrderItemSnapshot, OrderPaymentMethod, PanelSettings, PublicOrderPayload } from "../types";
+import { formatMonthLabel } from "../utils/orderDate";
+import type {
+  AdminOrder,
+  CustomerRecord,
+  DashboardStats,
+  NotificationSoundKey,
+  OrderAddress,
+  OrderItemSnapshot,
+  OrderPaymentMethod,
+  PanelSettings,
+  PublicOrderPayload,
+} from "../types";
 
 const ADMIN_PIN = "131094";
 
@@ -26,6 +37,17 @@ type OrderRow = {
     unit_price_snapshot: number;
     quantity: number;
   }>;
+};
+
+type CustomerRow = {
+  id: string;
+  phone: string;
+  name: string;
+  address_json: OrderAddress;
+  kvkk_accepted_at: string | null;
+  order_count: number;
+  last_order_at: string | null;
+  created_at: string;
 };
 
 function normalizeItems(items: OrderItemSnapshot[]): OrderItemSnapshot[] {
@@ -60,12 +82,29 @@ function rowToOrder(row: OrderRow): AdminOrder {
     createdAt: row.created_at,
     seenByAdmin: row.seen_by_admin,
     totalAmount: row.total_amount,
+    kvkkAccepted: true,
+  };
+}
+
+function rowToCustomer(row: CustomerRow): CustomerRecord {
+  return {
+    id: row.id,
+    phone: row.phone,
+    name: row.name,
+    address: row.address_json,
+    kvkkAcceptedAt: row.kvkk_accepted_at,
+    orderCount: row.order_count,
+    lastOrderAt: row.last_order_at,
+    createdAt: row.created_at,
   };
 }
 
 export async function submitPublicOrder(payload: PublicOrderPayload): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+
+  if (payload.website?.trim()) throw new Error("Geçersiz istek.");
+  if (!payload.kvkkAccepted) throw new Error("KVKK onayı gereklidir.");
 
   const items = normalizeItems(payload.items);
   if (items.length === 0) throw new Error("Siparişte ürün bulunamadı.");
@@ -77,6 +116,8 @@ export async function submitPublicOrder(payload: PublicOrderPayload): Promise<vo
       address_json: payload.address,
       payment_method: payload.paymentMethod,
       note: payload.note?.trim() || null,
+      kvkk_accepted: payload.kvkkAccepted,
+      website: payload.website || "",
       items: items.map((i) => ({
         product_id: i.productId,
         item_name_snapshot: i.name,
@@ -98,6 +139,70 @@ export async function fetchAdminOrders(): Promise<AdminOrder[]> {
   });
   if (error) throw new Error(error.message || "Siparişler yüklenemedi.");
   return ((data || []) as OrderRow[]).map(rowToOrder);
+}
+
+export async function fetchAdminCustomers(): Promise<CustomerRecord[]> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+
+  const { data, error } = await supabase.rpc("get_admin_customers", {
+    p_password: adminPin(),
+  });
+  if (error) throw new Error(error.message || "Müşteriler yüklenemedi.");
+  return ((data || []) as CustomerRow[]).map(rowToCustomer);
+}
+
+export async function updateCustomerRecord(
+  customerId: string,
+  name: string,
+  phone: string,
+  address: OrderAddress,
+): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+
+  const { error } = await supabase.rpc("update_customer_admin", {
+    p_password: adminPin(),
+    p_customer_id: customerId,
+    p_name: name.trim(),
+    p_phone: phone.trim(),
+    p_address_json: address,
+  });
+  if (error) throw new Error(error.message || "Müşteri güncellenemedi.");
+}
+
+export async function fetchDashboardStats(): Promise<DashboardStats> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+
+  const { data, error } = await supabase.rpc("get_order_dashboard_stats", {
+    p_password: adminPin(),
+  });
+  if (error) throw new Error(error.message || "Dashboard yüklenemedi.");
+
+  const raw = (data || {}) as {
+    all_time_order_count?: number;
+    all_time_revenue?: number;
+    monthly?: Array<{
+      year: number;
+      month: number;
+      label: string;
+      order_count: number;
+      revenue: number;
+    }>;
+  };
+
+  return {
+    allTimeOrderCount: Number(raw.all_time_order_count || 0),
+    allTimeRevenue: Number(raw.all_time_revenue || 0),
+    monthly: (raw.monthly || []).map((m) => ({
+      year: m.year,
+      month: m.month,
+      label: formatMonthLabel(m.year, m.month - 1),
+      orderCount: m.order_count,
+      revenue: Number(m.revenue),
+    })),
+  };
 }
 
 export async function setOrderStatus(orderId: string, status: "preparing" | "cancelled"): Promise<void> {
@@ -132,7 +237,13 @@ export async function markOrdersSeen(orderIds: string[]): Promise<void> {
 const DEFAULT_SETTINGS: PanelSettings = {
   notificationSoundEnabled: true,
   autoPrintNewOrder: false,
+  notificationSoundKey: "sound1",
 };
+
+function parseSoundKey(value: unknown): NotificationSoundKey {
+  if (value === "sound2" || value === "sound3") return value;
+  return "sound1";
+}
 
 export async function fetchPanelSettings(): Promise<PanelSettings> {
   const supabase = getSupabaseBrowserClient();
@@ -140,7 +251,7 @@ export async function fetchPanelSettings(): Promise<PanelSettings> {
 
   const { data, error } = await supabase
     .from("panel_settings")
-    .select("notification_sound_enabled,auto_print_new_order")
+    .select("notification_sound_enabled,auto_print_new_order,notification_sound_key")
     .eq("id", 1)
     .maybeSingle();
 
@@ -148,6 +259,7 @@ export async function fetchPanelSettings(): Promise<PanelSettings> {
   return {
     notificationSoundEnabled: Boolean(data.notification_sound_enabled),
     autoPrintNewOrder: Boolean(data.auto_print_new_order),
+    notificationSoundKey: parseSoundKey(data.notification_sound_key),
   };
 }
 
@@ -159,6 +271,7 @@ export async function savePanelSettings(next: PanelSettings): Promise<void> {
     id: 1,
     notification_sound_enabled: next.notificationSoundEnabled,
     auto_print_new_order: next.autoPrintNewOrder,
+    notification_sound_key: next.notificationSoundKey,
   });
   if (error) throw new Error(error.message || "Ayarlar kaydedilemedi.");
 }
