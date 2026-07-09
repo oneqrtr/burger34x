@@ -77,6 +77,8 @@ export default defineConfig(({mode, command}) => {
           ],
         },
         workbox: {
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api/, /^\/uploads/],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,mp4}'],
           globIgnores: ['**/art.png'],
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,

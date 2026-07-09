@@ -26,7 +26,9 @@ import { PaketSection } from '../components/admin/PaketSection';
 import { CouriersSettingsSection } from '../components/admin/CouriersSettingsSection';
 import { ResetOrdersSection } from '../components/admin/ResetOrdersSection';
 import { PaketSiparisiModal } from '../components/admin/PaketSiparisiModal';
+import { AdminHeader } from '../components/admin/AdminHeader';
 import { useAdminCartStore } from '../store/adminCartStore';
+import { fallbackCmsData } from '../constants/fallbackCmsData';
 import { toLocalDateIso, startOfLocalDay } from '../utils/orderDate';
 
 type PanelSection = 'dashboard' | 'orders' | 'paket' | 'customers' | 'menu' | 'prices' | 'settings';
@@ -236,12 +238,16 @@ export const Admin: React.FC = () => {
   };
 
   if (authChecking) {
-    return <div className="h-screen flex items-center justify-center">Oturum kontrol ediliyor…</div>;
+    return (
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
+        Oturum kontrol ediliyor…
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="pt-32 pb-24 px-8 max-w-md mx-auto">
+      <div className="min-h-screen bg-dark-bg pt-32 pb-24 px-8 max-w-md mx-auto">
         <div className="bg-white/5 rounded-2xl p-8 border border-white/10">
           <h1 className="text-3xl font-black mb-2">Yönetim girişi</h1>
           <p className="text-white/60 text-sm mb-6">Supabase hesabınızla giriş yapın.</p>
@@ -274,8 +280,15 @@ export const Admin: React.FC = () => {
     );
   }
 
-  if (isLoading || !localData) {
-    return <div className="h-screen flex items-center justify-center">Panel yükleniyor…</div>;
+  const panelData = localData ?? data ?? fallbackCmsData;
+
+  if (isLoading && !data && !localData) {
+    return (
+      <div className="min-h-screen bg-dark-bg">
+        <AdminHeader onLogout={() => void handleLogout()} />
+        <div className="pt-32 flex items-center justify-center text-white/60">Panel yükleniyor…</div>
+      </div>
+    );
   }
 
   const navButton = (section: PanelSection, label: React.ReactNode) => (
@@ -291,7 +304,9 @@ export const Admin: React.FC = () => {
   );
 
   return (
-    <div className="pt-20 min-h-screen">
+    <div className="min-h-screen bg-dark-bg">
+      <AdminHeader onLogout={() => void handleLogout()} />
+      <div className="pt-20 min-h-screen">
       <div className="grid grid-cols-12 min-h-[calc(100vh-5rem)]">
         <aside className="col-span-12 md:col-span-3 border-r border-white/10 bg-black/20 p-4 flex flex-col md:sticky md:top-20 md:h-[calc(100vh-5rem)]">
           {navButton('dashboard', <span className="flex items-center gap-2"><LayoutDashboard className="w-4 h-4" /> Dashboard</span>)}
@@ -369,7 +384,7 @@ export const Admin: React.FC = () => {
 
           {activeSection === 'menu' && (
             <MenuManagementSection
-              data={localData}
+              data={panelData}
               onChange={setLocalData}
               onSave={updateData}
             />
@@ -377,7 +392,7 @@ export const Admin: React.FC = () => {
 
           {activeSection === 'prices' && (
             <PricesSection
-              data={localData}
+              data={panelData}
               onChange={setLocalData}
               onSave={updateData}
             />
@@ -434,10 +449,11 @@ export const Admin: React.FC = () => {
           )}
         </main>
       </div>
+      </div>
 
-      {adminCartOpen && localData ? (
+      {adminCartOpen ? (
         <PaketSiparisiModal
-          data={localData}
+          data={panelData}
           customers={customers}
           onClose={() => setAdminCartOpen(false)}
           onSuccess={async () => {

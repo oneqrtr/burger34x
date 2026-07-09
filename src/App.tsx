@@ -1,12 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
-import { CartDrawer } from './components/CartDrawer';
-import { PWAInstallButton } from './components/PWAInstallButton';
-import { Home } from './pages/Home';
-import { Menu } from './pages/Menu';
-import { Admin } from './pages/Admin';
+import { SiteApp } from './apps/SiteApp';
+import { AdminApp } from './apps/AdminApp';
 import { publicAssetUrl } from './utils/publicAssetUrl';
 
 export default function App() {
@@ -19,20 +14,10 @@ export default function App() {
 
   return (
     <Router basename={import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <CartDrawer />
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/menu" element={<Menu />} />
-            <Route path="/admin" element={<Admin />} />
-            {/* Other routes can be added here */}
-          </Routes>
-        </main>
-        <PWAInstallButton />
-        <Footer />
-      </div>
+      <Routes>
+        <Route path="/admin/*" element={<AdminApp />} />
+        <Route path="/*" element={<SiteApp />} />
+      </Routes>
     </Router>
   );
 }

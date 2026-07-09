@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useCMSStore } from '../store/cmsStore';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
 
@@ -11,21 +11,14 @@ function turkeyPhoneForLinks(displayPhone: string): string {
 }
 
 export const Footer: React.FC = () => {
-  const { pathname } = useLocation();
-  const pathNorm = pathname.replace(/\/$/, '') || '/';
-  const isAdmin = pathNorm === '/admin';
-
   const { data, fetchData } = useCMSStore();
   const cmsData = data ?? fallbackCmsData;
-  const visibleSocials = cmsData.ui.socialLinks.filter((item) => item.enabled);
   const telHref = turkeyPhoneForLinks(cmsData.contact.phone);
+  const visibleSocials = cmsData.ui.socialLinks.filter((item) => item.enabled);
 
   React.useEffect(() => {
-    if (isAdmin) return;
     if (!data) fetchData();
-  }, [data, fetchData, isAdmin]);
-
-  if (isAdmin) return null;
+  }, [data, fetchData]);
 
   return (
     <footer className="bg-dark-bg border-t border-white/10">
@@ -80,9 +73,6 @@ export const Footer: React.FC = () => {
               {cmsData.contact.phone}
             </a>
           </p>
-          <div className="pt-4">
-            <Link to="/admin" className="text-[10px] uppercase tracking-widest text-white/20 hover:text-white/60 transition-colors">Yönetim</Link>
-          </div>
         </div>
       </div>
     </footer>

@@ -4,7 +4,11 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App.tsx';
 import './index.css';
 
-registerSW({ immediate: true });
+const isAdminPath = window.location.pathname.replace(/\/$/, '').startsWith('/admin');
+
+if (!isAdminPath) {
+  registerSW({ immediate: true });
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
