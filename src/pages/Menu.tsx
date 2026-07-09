@@ -4,6 +4,7 @@ import { useCMSStore } from '../store/cmsStore';
 import { ProductCard } from '../components/ProductCard';
 import { MenuPromoMegaStrip } from '../components/MenuPromoMegaStrip';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
+import { visibleProducts } from '../utils/visibleProducts';
 
 export const Menu: React.FC = () => {
   const { data, isLoading, fetchData } = useCMSStore();
@@ -15,9 +16,11 @@ export const Menu: React.FC = () => {
 
   const cmsData = data ?? fallbackCmsData;
 
-  const filteredProducts = activeCategory === 'all' 
-    ? cmsData.products 
-    : cmsData.products.filter(p => p.categoryId === activeCategory);
+  const visible = visibleProducts(cmsData.products);
+
+  const filteredProducts = activeCategory === 'all'
+    ? visible
+    : visible.filter((p) => p.categoryId === activeCategory);
 
   return (
     <div className="pt-20">

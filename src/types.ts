@@ -54,6 +54,8 @@ export interface Product {
   image: string;
   ingredients?: string[];
   isBestSeller: boolean;
+  /** Admin: sitede gizli */
+  isHidden?: boolean;
 }
 
 export interface BlogPost {

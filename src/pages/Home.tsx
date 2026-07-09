@@ -7,6 +7,7 @@ import { useCMSStore } from '../store/cmsStore';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
+import { visibleProducts } from '../utils/visibleProducts';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
 
 export const Home: React.FC = () => {
@@ -18,7 +19,7 @@ export const Home: React.FC = () => {
 
   const cmsData = data ?? fallbackCmsData;
 
-  const bestSellers = cmsData.products.filter(p => p.isBestSeller);
+  const bestSellers = visibleProducts(cmsData.products).filter((p) => p.isBestSeller);
 
   return (
     <div className="w-full">
