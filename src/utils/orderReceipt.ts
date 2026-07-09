@@ -3,7 +3,7 @@ import { formatTry } from './formatPrice';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
 
 const SITE_URL = 'https://burger34.com.tr';
-const LOGO_URL = publicAssetUrl('/logo_final_vectorized.png');
+const LOGO_URL = publicAssetUrl('/negatif_vectorized.png');
 
 export type ParsedOrderItem = {
   productId: string;

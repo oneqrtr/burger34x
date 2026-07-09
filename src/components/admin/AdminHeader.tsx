@@ -1,34 +1,21 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, LogOut } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { useAdminCartStore } from '../../store/adminCartStore';
-import { signOutAdmin } from '../../services/adminAuthService';
 
-interface AdminHeaderProps {
-  onLogout: () => void;
-}
-
-export const AdminHeader: React.FC<AdminHeaderProps> = ({ onLogout }) => {
+export const AdminHeader: React.FC = () => {
   const setAdminCartOpen = useAdminCartStore((s) => s.setIsOpen);
   const adminCartCount = useAdminCartStore((s) =>
     s.items.reduce((acc, item) => acc + item.quantity, 0),
   );
-
-  const handleLogout = async () => {
-    try {
-      await signOutAdmin();
-    } finally {
-      onLogout();
-    }
-  };
 
   return (
     <header className="fixed top-0 w-full z-50 flex justify-between items-center bg-dark-bg/90 px-8 py-4 backdrop-blur-xl border-b border-white/10">
       <div className="flex items-center gap-4 shrink-0 min-w-0">
         <Link to="/admin" className="flex items-center gap-3 shrink-0">
           <img
-            src={publicAssetUrl('/logo_final_vectorized.png')}
+            src={publicAssetUrl('/logo_final.png')}
             alt="Burger34"
             className="h-10 w-auto"
           />
@@ -51,13 +38,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onLogout }) => {
               {adminCartCount}
             </span>
           ) : null}
-        </button>
-        <button
-          type="button"
-          onClick={() => void handleLogout()}
-          className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-bold"
-        >
-          <LogOut className="w-4 h-4" /> Çıkış
         </button>
       </div>
     </header>

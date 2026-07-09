@@ -286,7 +286,7 @@ export const Admin: React.FC = () => {
   if (isLoading && !data && !localData) {
     return (
       <div className="min-h-screen bg-dark-bg">
-        <AdminHeader onLogout={() => void handleLogout()} />
+        <AdminHeader />
         <div className="pt-32 flex items-center justify-center text-white/60">Panel yükleniyor…</div>
       </div>
     );
@@ -309,7 +309,7 @@ export const Admin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-dark-bg">
-      <AdminHeader onLogout={() => void handleLogout()} />
+      <AdminHeader />
       <div className="pt-20 min-h-screen">
       <div className="grid grid-cols-12 min-h-[calc(100vh-5rem)]">
         <aside className="col-span-12 md:col-span-3 border-r border-white/10 bg-black/20 p-4 flex flex-col md:sticky md:top-20 md:h-[calc(100vh-5rem)]">
