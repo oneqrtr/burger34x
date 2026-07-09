@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Settings, UtensilsCrossed, ClipboardList, LayoutDashboard, Users } from 'lucide-react';
+import { Bell, Settings, UtensilsCrossed, ClipboardList, LayoutDashboard, Users, Banknote } from 'lucide-react';
 import { useCMSStore } from '../store/cmsStore';
 import { CMSData, AdminOrder, PanelSettings, CustomerRecord, DashboardStats, NotificationSoundKey } from '../types';
 import {
@@ -17,8 +17,9 @@ import { OrdersSection } from '../components/admin/OrdersSection';
 import { DashboardSection } from '../components/admin/DashboardSection';
 import { CustomersSection } from '../components/admin/CustomersSection';
 import { MenuManagementSection } from '../components/admin/MenuManagementSection';
+import { PricesSection } from '../components/admin/PricesSection';
 
-type PanelSection = 'dashboard' | 'orders' | 'customers' | 'menu' | 'settings';
+type PanelSection = 'dashboard' | 'orders' | 'customers' | 'menu' | 'prices' | 'settings';
 
 const SOUND_OPTIONS: Array<{ key: NotificationSoundKey; label: string }> = [
   { key: 'sound1', label: 'Klasik bip' },
@@ -203,6 +204,7 @@ export const Admin: React.FC = () => {
           )}
           {navButton('customers', <span className="flex items-center gap-2"><Users className="w-4 h-4" /> Müşteriler</span>)}
           {navButton('menu', <span className="flex items-center gap-2"><UtensilsCrossed className="w-4 h-4" /> Menü Yönetimi</span>)}
+          {navButton('prices', <span className="flex items-center gap-2"><Banknote className="w-4 h-4" /> Fiyatlar</span>)}
           <div className="mt-auto">
             {navButton('settings', <span className="flex items-center gap-2"><Settings className="w-4 h-4" /> Ayarlar</span>)}
           </div>
@@ -229,6 +231,14 @@ export const Admin: React.FC = () => {
 
           {activeSection === 'menu' && (
             <MenuManagementSection
+              data={localData}
+              onChange={setLocalData}
+              onSave={updateData}
+            />
+          )}
+
+          {activeSection === 'prices' && (
+            <PricesSection
               data={localData}
               onChange={setLocalData}
               onSave={updateData}
