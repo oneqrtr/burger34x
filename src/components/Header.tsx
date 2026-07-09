@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useCMSStore } from '../store/cmsStore';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
+import { scrollToMenuProducts } from '../utils/scrollToMenuProducts';
 import { HERO_SCROLL_SECTION_VH } from '../constants/heroLayout';
 
 /** Sticky hero görünümü ~100vh; menü hero kaydırması bitince (section sonu) görünür. */
@@ -98,7 +99,10 @@ export const Header: React.FC = () => {
         </button>
         {!isAdmin ? (
           <Link
-            to="/menu"
+            to="/menu#urunler"
+            onClick={() => {
+              if (pathNorm === '/menu') scrollToMenuProducts();
+            }}
             className="bg-burgundy text-white px-6 py-2 rounded-xl font-bold text-sm tracking-tight hover:bg-burgundy/80 transition-all active:scale-95"
           >
             Sipariş ver

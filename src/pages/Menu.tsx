@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { useCMSStore } from '../store/cmsStore';
 import { ProductCard } from '../components/ProductCard';
 import { MenuPromoMegaStrip } from '../components/MenuPromoMegaStrip';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
 import { visibleProducts } from '../utils/visibleProducts';
+import { scrollToMenuProducts } from '../utils/scrollToMenuProducts';
 
 export const Menu: React.FC = () => {
   const { data, isLoading, fetchData } = useCMSStore();
   const [activeCategory, setActiveCategory] = useState('all');
+  const location = useLocation();
 
   useEffect(() => {
     fetchData();
@@ -22,6 +25,11 @@ export const Menu: React.FC = () => {
     ? visible
     : visible.filter((p) => p.categoryId === activeCategory);
 
+  useEffect(() => {
+    if (location.hash !== '#urunler') return;
+    scrollToMenuProducts(isLoading ? 'auto' : 'smooth');
+  }, [location.hash, isLoading, filteredProducts.length]);
+
   return (
     <div className="pt-20">
       <MenuPromoMegaStrip />
@@ -31,7 +39,8 @@ export const Menu: React.FC = () => {
         <p className="text-orange-accent tracking-[0.3em] uppercase text-sm">Sokak Lezzetleri</p>
       </div>
 
-      {/* Category Filter */}
+      {/* Category Filter + Products */}
+      <div id="menu-urunler" className="scroll-mt-32">
       <div className="flex justify-center gap-4 mb-16 overflow-x-auto no-scrollbar pb-4">
         <button
           onClick={() => setActiveCategory('all')}
@@ -61,6 +70,7 @@ export const Menu: React.FC = () => {
             <ProductCard key={product.id} product={product} />
           ))}
         </AnimatePresence>
+      </div>
       </div>
       {isLoading && (
         <p className="mt-8 text-center text-sm text-white/50">Icerik guncelleniyor...</p>

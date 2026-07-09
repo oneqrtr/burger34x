@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -33,6 +33,40 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [uploadingProductId, setUploadingProductId] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const accordionRef = useRef<HTMLDivElement>(null);
+
+  const scrollToAccordion = useCallback(() => {
+    requestAnimationFrame(() => {
+      accordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
+  const expandCategory = useCallback(
+    (categoryId: string) => {
+      setExpandedCategoryId(categoryId);
+      scrollToAccordion();
+    },
+    [scrollToAccordion],
+  );
+
+  const toggleCategory = useCallback(
+    (categoryId: string, isExpanded: boolean) => {
+      if (isExpanded) {
+        setExpandedCategoryId(null);
+        return;
+      }
+      expandCategory(categoryId);
+    },
+    [expandCategory],
+  );
+
+  const openProductEdit = useCallback(
+    (productId: string, isSelected: boolean) => {
+      setEditingProductId(isSelected ? null : productId);
+      if (!isSelected) scrollToAccordion();
+    },
+    [scrollToAccordion],
+  );
 
   const expandedCategory = useMemo(
     () => data.categories.find((c) => c.id === expandedCategoryId) ?? null,
@@ -95,6 +129,7 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
     patch({ ...data, categories: [...data.categories, newCat] });
     setExpandedCategoryId(newCat.id);
     setEditingCategoryId(newCat.id);
+    scrollToAccordion();
   };
 
   const removeCategory = async (categoryId: string) => {
@@ -127,6 +162,7 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
     };
     patch({ ...data, products: [...data.products, newProduct] });
     setEditingProductId(newProduct.id);
+    scrollToAccordion();
   };
 
   const removeProduct = async (productId: string) => {
@@ -241,7 +277,7 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => setExpandedCategoryId(isExpanded ? null : category.id)}
+                    onClick={() => toggleCategory(category.id, isExpanded)}
                     className="w-full text-left"
                   >
                     <p className="font-black text-lg">{category.name}</p>
@@ -251,7 +287,7 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        setExpandedCategoryId(category.id);
+                        expandCategory(category.id);
                         setEditingCategoryId(category.id);
                       }}
                       className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-[10px] font-bold uppercase flex items-center gap-1"
@@ -267,7 +303,7 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setExpandedCategoryId(isExpanded ? null : category.id)}
+                      onClick={() => toggleCategory(category.id, isExpanded)}
                       className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-[10px] font-bold uppercase ml-auto flex items-center gap-1"
                     >
                       {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -282,7 +318,10 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
 
       {/* Akordiyon içeriği */}
       {expandedCategory ? (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+        <div
+          ref={accordionRef}
+          className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden scroll-mt-24"
+        >
           <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
             <h3 className="font-black text-xl flex items-center gap-2">
               <ChevronDown className="w-5 h-5 text-orange-accent" />
@@ -432,7 +471,7 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
                         <div className="flex flex-wrap gap-1.5 mt-3">
                           <button
                             type="button"
-                            onClick={() => setEditingProductId(isSelected ? null : product.id)}
+                            onClick={() => openProductEdit(product.id, isSelected)}
                             className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-[10px] font-bold uppercase flex items-center gap-1"
                           >
                             <Pencil className="w-3 h-3" /> Düzenle
