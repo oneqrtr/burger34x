@@ -188,6 +188,12 @@ export async function submitAdminPhoneOrder(payload: AdminPhoneOrderPayload): Pr
   if (error) throw new Error(error.message || "Sipariş oluşturulamadı.");
 }
 
+export async function resetAllOrders(password: string): Promise<void> {
+  const supabase = await requireAdminClient();
+  const { error } = await supabase.rpc("reset_orders_admin", { p_password: password });
+  if (error) throw new Error(error.message || "Siparişler sıfırlanamadı.");
+}
+
 export async function fetchAdminOrders(): Promise<AdminOrder[]> {
   const supabase = await requireAdminClient();
 

@@ -24,6 +24,7 @@ import { MenuManagementSection } from '../components/admin/MenuManagementSection
 import { PricesSection } from '../components/admin/PricesSection';
 import { PaketSection } from '../components/admin/PaketSection';
 import { CouriersSettingsSection } from '../components/admin/CouriersSettingsSection';
+import { ResetOrdersSection } from '../components/admin/ResetOrdersSection';
 import { PaketSiparisiModal } from '../components/admin/PaketSiparisiModal';
 import { useAdminCartStore } from '../store/adminCartStore';
 import { toLocalDateIso, startOfLocalDay } from '../utils/orderDate';
@@ -165,6 +166,12 @@ export const Admin: React.FC = () => {
     actualPayment: AdminOrder['paymentMethod'],
   ) => {
     await completeOrderDelivery(orderId, courierId, actualPayment);
+    await refreshOrders();
+    await refreshDashboard();
+    await refreshDailyReport(dashboardDay);
+  };
+
+  const handleResetOrders = async () => {
     await refreshOrders();
     await refreshDashboard();
     await refreshDailyReport(dashboardDay);
@@ -422,6 +429,7 @@ export const Admin: React.FC = () => {
                 Ayarları Kaydet
               </button>
               </div>
+              <ResetOrdersSection onReset={handleResetOrders} />
             </div>
           )}
         </main>
