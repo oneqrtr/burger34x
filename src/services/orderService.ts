@@ -3,12 +3,15 @@ import { requireAdminClient } from "../lib/requireAdminClient";
 import { formatMonthLabel } from "../utils/orderDate";
 import type {
   AdminOrder,
+  Courier,
   CustomerRecord,
+  DailyDeliveryReport,
   DashboardStats,
   NotificationSoundKey,
   OrderAddress,
   OrderItemSnapshot,
   OrderPaymentMethod,
+  OrderStatus,
   PanelSettings,
   PublicOrderPayload,
 } from "../types";
@@ -20,17 +23,32 @@ type OrderRow = {
   customer_phone: string;
   address_json: OrderAddress;
   payment_method: OrderPaymentMethod;
+  actual_payment_method: OrderPaymentMethod | null;
   note: string | null;
-  status: "new" | "preparing" | "cancelled";
+  status: OrderStatus;
   created_at: string;
+  delivered_at: string | null;
   seen_by_admin: boolean;
   total_amount: number;
+  courier_id: string | null;
+  courier_first_name: string | null;
+  courier_last_name: string | null;
+  courier_phone: string | null;
   order_items?: Array<{
     product_id: string;
     item_name_snapshot: string;
     unit_price_snapshot: number;
     quantity: number;
   }>;
+};
+
+type CourierRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  is_active: boolean;
+  created_at: string;
 };
 
 type CustomerRow = {
@@ -74,9 +92,26 @@ function rowToOrder(row: OrderRow): AdminOrder {
     items,
     status: row.status,
     createdAt: row.created_at,
+    deliveredAt: row.delivered_at,
     seenByAdmin: row.seen_by_admin,
     totalAmount: row.total_amount,
+    actualPaymentMethod: row.actual_payment_method,
+    courierId: row.courier_id,
+    courierFirstName: row.courier_first_name,
+    courierLastName: row.courier_last_name,
+    courierPhone: row.courier_phone,
     kvkkAccepted: true,
+  };
+}
+
+function rowToCourier(row: CourierRow): Courier {
+  return {
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    phone: row.phone,
+    isActive: row.is_active,
+    createdAt: row.created_at,
   };
 }
 
@@ -252,4 +287,112 @@ export async function savePanelSettings(next: PanelSettings): Promise<void> {
     notification_sound_key: next.notificationSoundKey,
   });
   if (error) throw new Error(error.message || "Ayarlar kaydedilemedi.");
+}
+
+export async function fetchCouriers(): Promise<Courier[]> {
+  const supabase = await requireAdminClient();
+  const { data, error } = await supabase.rpc("get_admin_couriers");
+  if (error) throw new Error(error.message || "Kuryeler yüklenemedi.");
+  return ((data || []) as CourierRow[]).map(rowToCourier);
+}
+
+export async function saveCourier(
+  courierId: string | null,
+  firstName: string,
+  lastName: string,
+  phone: string,
+): Promise<void> {
+  const supabase = await requireAdminClient();
+  const { error } = await supabase.rpc("upsert_courier_admin", {
+    p_courier_id: courierId,
+    p_first_name: firstName.trim(),
+    p_last_name: lastName.trim(),
+    p_phone: phone.trim(),
+  });
+  if (error) throw new Error(error.message || "Kurye kaydedilemedi.");
+}
+
+export async function setCourierActive(courierId: string, isActive: boolean): Promise<void> {
+  const supabase = await requireAdminClient();
+  const { error } = await supabase.rpc("set_courier_active_admin", {
+    p_courier_id: courierId,
+    p_is_active: isActive,
+  });
+  if (error) throw new Error(error.message || "Kurye durumu güncellenemedi.");
+}
+
+export async function completeOrderDelivery(
+  orderId: string,
+  courierId: string,
+  actualPaymentMethod: OrderPaymentMethod,
+): Promise<void> {
+  const supabase = await requireAdminClient();
+  const { error } = await supabase.rpc("complete_order_delivery", {
+    p_order_id: orderId,
+    p_courier_id: courierId,
+    p_actual_payment_method: actualPaymentMethod,
+  });
+  if (error) throw new Error(error.message || "Teslimat kaydedilemedi.");
+}
+
+export async function fetchDailyDeliveryReport(dayIso: string): Promise<DailyDeliveryReport> {
+  const supabase = await requireAdminClient();
+  const { data, error } = await supabase.rpc("get_daily_delivery_report", { p_day: dayIso });
+  if (error) throw new Error(error.message || "Günlük rapor yüklenemedi.");
+
+  const raw = (data || {}) as {
+    day?: string;
+    delivery_count?: number;
+    total_revenue?: number;
+    cash_total?: number;
+    card_total?: number;
+    payment_mismatch_count?: number;
+    by_courier?: Array<{
+      courier_id: string;
+      courier_name: string;
+      courier_phone: string;
+      delivery_count: number;
+      total_revenue: number;
+      cash_count: number;
+      card_count: number;
+    }>;
+    deliveries?: Array<{
+      order_id: string;
+      order_no: number;
+      customer_name: string;
+      total_amount: number;
+      payment_method: OrderPaymentMethod;
+      actual_payment_method: OrderPaymentMethod;
+      courier_name: string;
+      delivered_at: string;
+    }>;
+  };
+
+  return {
+    day: raw.day || dayIso,
+    deliveryCount: Number(raw.delivery_count || 0),
+    totalRevenue: Number(raw.total_revenue || 0),
+    cashTotal: Number(raw.cash_total || 0),
+    cardTotal: Number(raw.card_total || 0),
+    paymentMismatchCount: Number(raw.payment_mismatch_count || 0),
+    byCourier: (raw.by_courier || []).map((c) => ({
+      courierId: c.courier_id,
+      courierName: c.courier_name,
+      courierPhone: c.courier_phone,
+      deliveryCount: c.delivery_count,
+      totalRevenue: Number(c.total_revenue),
+      cashCount: c.cash_count,
+      cardCount: c.card_count,
+    })),
+    deliveries: (raw.deliveries || []).map((d) => ({
+      orderId: d.order_id,
+      orderNo: d.order_no,
+      customerName: d.customer_name,
+      totalAmount: Number(d.total_amount),
+      paymentMethod: d.payment_method,
+      actualPaymentMethod: d.actual_payment_method,
+      courierName: d.courier_name,
+      deliveredAt: d.delivered_at,
+    })),
+  };
 }

@@ -4,6 +4,7 @@ import type { AdminOrder } from '../../types';
 import { formatTry } from '../../utils/formatPrice';
 import { addDays, formatPanelDate, isSameLocalDay, startOfLocalDay } from '../../utils/orderDate';
 import { formatOrderDateLabel, formatOrderTime } from './orderFormat';
+import { orderStatusLabel } from '../../utils/orderStatus';
 import { OrderDetailModal } from './OrderDetailModal';
 import { CancelOrderModal } from './CancelOrderModal';
 
@@ -27,7 +28,12 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
   const [cancelOrder, setCancelOrder] = useState<AdminOrder | null>(null);
 
   const dayOrders = useMemo(
-    () => orders.filter((o) => isSameLocalDay(o.createdAt, selectedDay)),
+    () =>
+      orders.filter(
+        (o) =>
+          isSameLocalDay(o.createdAt, selectedDay)
+          && (o.status === 'new' || o.status === 'cancelled'),
+      ),
     [orders, selectedDay],
   );
 
@@ -89,10 +95,10 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                   <p className="text-xs text-white/40 mt-1">{formatOrderDateLabel(order.createdAt)}</p>
                 </div>
                 <div className="text-right">
-                  <span className={`text-xs font-bold uppercase block mb-1 ${
-                    order.status === 'new' ? 'text-orange-accent' : order.status === 'preparing' ? 'text-green-400' : 'text-red-400'
+                  <span className={`text-xs font-bold block mb-1 ${
+                    order.status === 'new' ? 'text-orange-accent' : 'text-red-400'
                   }`}>
-                    {order.status === 'new' ? 'Yeni' : order.status === 'preparing' ? 'Onaylandı' : 'İptal'}
+                    {orderStatusLabel(order.status)}
                   </span>
                   <span className="text-sm font-black text-orange-accent">{formatTry(order.totalAmount)}</span>
                 </div>

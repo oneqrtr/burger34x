@@ -26,6 +26,18 @@ export function formatPanelDate(date: Date): string {
   }).format(date);
 }
 
+export function toLocalDateIso(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function isSameLocalDayFromIso(iso: string | null | undefined, day: Date): boolean {
+  if (!iso) return false;
+  return isSameLocalDay(iso, day);
+}
+
 export function formatMonthLabel(year: number, monthIndex: number): string {
   return new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(
     new Date(year, monthIndex, 1),

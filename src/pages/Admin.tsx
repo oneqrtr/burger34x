@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Settings, UtensilsCrossed, ClipboardList, LayoutDashboard, Users, Banknote, LogOut } from 'lucide-react';
+import { Bell, Settings, UtensilsCrossed, ClipboardList, LayoutDashboard, Users, Banknote, LogOut, Package } from 'lucide-react';
 import { useCMSStore } from '../store/cmsStore';
-import { CMSData, AdminOrder, PanelSettings, CustomerRecord, DashboardStats, NotificationSoundKey } from '../types';
+import { CMSData, AdminOrder, PanelSettings, CustomerRecord, DashboardStats, NotificationSoundKey, Courier, DailyDeliveryReport } from '../types';
 import {
   fetchAdminOrders,
   fetchAdminCustomers,
   fetchDashboardStats,
+  fetchDailyDeliveryReport,
   fetchPanelSettings,
+  fetchCouriers,
   markOrdersSeen,
   savePanelSettings,
   setOrderStatus,
+  completeOrderDelivery,
 } from '../services/orderService';
 import { getAdminSession, onAdminAuthChange, signInAdmin, signOutAdmin } from '../services/adminAuthService';
 import { getSupabaseBrowserClient } from '../lib/supabaseClient';
@@ -19,8 +22,11 @@ import { DashboardSection } from '../components/admin/DashboardSection';
 import { CustomersSection } from '../components/admin/CustomersSection';
 import { MenuManagementSection } from '../components/admin/MenuManagementSection';
 import { PricesSection } from '../components/admin/PricesSection';
+import { PaketSection } from '../components/admin/PaketSection';
+import { CouriersSettingsSection } from '../components/admin/CouriersSettingsSection';
+import { toLocalDateIso, startOfLocalDay } from '../utils/orderDate';
 
-type PanelSection = 'dashboard' | 'orders' | 'customers' | 'menu' | 'prices' | 'settings';
+type PanelSection = 'dashboard' | 'orders' | 'paket' | 'customers' | 'menu' | 'prices' | 'settings';
 
 const SOUND_OPTIONS: Array<{ key: NotificationSoundKey; label: string }> = [
   { key: 'sound1', label: 'Klasik bip' },
@@ -38,9 +44,13 @@ export const Admin: React.FC = () => {
   const [authChecking, setAuthChecking] = useState(true);
   const [activeSection, setActiveSection] = useState<PanelSection>('orders');
   const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [couriers, setCouriers] = useState<Courier[]>([]);
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [dailyReport, setDailyReport] = useState<DailyDeliveryReport | null>(null);
+  const [dashboardDay, setDashboardDay] = useState(() => startOfLocalDay(new Date()));
   const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dailyLoading, setDailyLoading] = useState(false);
   const [settingsData, setSettingsData] = useState<PanelSettings>({
     notificationSoundEnabled: true,
     autoPrintNewOrder: false,
@@ -76,6 +86,11 @@ export const Admin: React.FC = () => {
     setCustomers(next);
   }, []);
 
+  const refreshCouriers = useCallback(async () => {
+    const next = await fetchCouriers();
+    setCouriers(next);
+  }, []);
+
   const refreshDashboard = useCallback(async () => {
     setDashboardLoading(true);
     try {
@@ -88,14 +103,28 @@ export const Admin: React.FC = () => {
     }
   }, []);
 
+  const refreshDailyReport = useCallback(async (day: Date) => {
+    setDailyLoading(true);
+    try {
+      const report = await fetchDailyDeliveryReport(toLocalDateIso(day));
+      setDailyReport(report);
+    } catch {
+      setDailyReport(null);
+    } finally {
+      setDailyLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isAuthenticated) return;
     void fetchData();
     void refreshOrders().catch(() => undefined);
+    void refreshCouriers().catch(() => undefined);
     void refreshCustomers().catch(() => undefined);
     void refreshDashboard().catch(() => undefined);
+    void refreshDailyReport(dashboardDay).catch(() => undefined);
     void fetchPanelSettings().then(setSettingsData).catch(() => undefined);
-  }, [isAuthenticated, fetchData, refreshOrders, refreshCustomers, refreshDashboard]);
+  }, [isAuthenticated, fetchData, refreshOrders, refreshCouriers, refreshCustomers, refreshDashboard, refreshDailyReport, dashboardDay]);
 
   useEffect(() => {
     if (data) setLocalData(JSON.parse(JSON.stringify(data)));
@@ -112,13 +141,30 @@ export const Admin: React.FC = () => {
         await refreshOrders().catch(() => undefined);
         await refreshCustomers().catch(() => undefined);
         await refreshDashboard().catch(() => undefined);
+        await refreshDailyReport(dashboardDay).catch(() => undefined);
       })
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isAuthenticated, refreshOrders, refreshDashboard]);
+  }, [isAuthenticated, refreshOrders, refreshCustomers, refreshDashboard, refreshDailyReport, dashboardDay]);
+
+  const paketPendingCount = useMemo(
+    () => orders.filter((o) => o.status === 'preparing').length,
+    [orders],
+  );
+
+  const handleDeliverOrder = async (
+    orderId: string,
+    courierId: string,
+    actualPayment: AdminOrder['paymentMethod'],
+  ) => {
+    await completeOrderDelivery(orderId, courierId, actualPayment);
+    await refreshOrders();
+    await refreshDashboard();
+    await refreshDailyReport(dashboardDay);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,6 +295,17 @@ export const Admin: React.FC = () => {
               ) : null}
             </>,
           )}
+          {navButton(
+            'paket',
+            <>
+              <span className="flex items-center gap-2"><Package className="w-4 h-4" /> Paket</span>
+              {paketPendingCount > 0 ? (
+                <span className="bg-orange-accent text-black text-xs w-6 h-6 rounded-full flex items-center justify-center">
+                  {paketPendingCount}
+                </span>
+              ) : null}
+            </>,
+          )}
           {navButton('customers', <span className="flex items-center gap-2"><Users className="w-4 h-4" /> Müşteriler</span>)}
           {navButton('menu', <span className="flex items-center gap-2"><UtensilsCrossed className="w-4 h-4" /> Menü Yönetimi</span>)}
           {navButton('prices', <span className="flex items-center gap-2"><Banknote className="w-4 h-4" /> Fiyatlar</span>)}
@@ -266,7 +323,14 @@ export const Admin: React.FC = () => {
 
         <main className="col-span-12 md:col-span-9 p-6 md:p-8">
           {activeSection === 'dashboard' && (
-            <DashboardSection stats={dashboardStats} loading={dashboardLoading} />
+            <DashboardSection
+              stats={dashboardStats}
+              dailyReport={dailyReport}
+              selectedDay={dashboardDay}
+              onDayChange={setDashboardDay}
+              loading={dashboardLoading}
+              dailyLoading={dailyLoading}
+            />
           )}
 
           {activeSection === 'orders' && (
@@ -276,6 +340,15 @@ export const Admin: React.FC = () => {
               onMarkSeen={handleMarkSeen}
               onConfirmOrder={handleConfirmOrder}
               onCancelOrder={handleCancelOrder}
+            />
+          )}
+
+          {activeSection === 'paket' && (
+            <PaketSection
+              orders={orders}
+              couriers={couriers}
+              onRefresh={refreshOrders}
+              onDeliver={handleDeliverOrder}
             />
           )}
 
@@ -300,7 +373,9 @@ export const Admin: React.FC = () => {
           )}
 
           {activeSection === 'settings' && (
-            <div className="max-w-xl rounded-xl border border-white/10 bg-white/5 p-6 space-y-5">
+            <div className="max-w-xl space-y-5">
+              <CouriersSettingsSection couriers={couriers} onRefresh={refreshCouriers} />
+              <div className="rounded-xl border border-white/10 bg-white/5 p-6 space-y-5">
               <h3 className="text-xl font-black">Panel Ayarları</h3>
               <label className="flex items-center justify-between rounded-lg bg-dark-bg px-4 py-3">
                 <span className="flex items-center gap-2"><Bell className="w-4 h-4" /> Bildirim sesi</span>
@@ -342,6 +417,7 @@ export const Admin: React.FC = () => {
               >
                 Ayarları Kaydet
               </button>
+              </div>
             </div>
           )}
         </main>

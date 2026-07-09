@@ -84,7 +84,7 @@ export interface CMSData {
 }
 
 export type OrderPaymentMethod = "cash" | "card_on_delivery";
-export type OrderStatus = "new" | "preparing" | "cancelled";
+export type OrderStatus = "new" | "preparing" | "cancelled" | "delivered";
 
 export interface OrderAddress {
   neighborhood: string;
@@ -123,6 +123,53 @@ export interface AdminOrder extends PublicOrderPayload {
   createdAt: string;
   seenByAdmin: boolean;
   totalAmount: number;
+  deliveredAt?: string | null;
+  actualPaymentMethod?: OrderPaymentMethod | null;
+  courierId?: string | null;
+  courierFirstName?: string | null;
+  courierLastName?: string | null;
+  courierPhone?: string | null;
+}
+
+export interface Courier {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface DailyCourierSummary {
+  courierId: string;
+  courierName: string;
+  courierPhone: string;
+  deliveryCount: number;
+  totalRevenue: number;
+  cashCount: number;
+  cardCount: number;
+}
+
+export interface DailyDeliveryItem {
+  orderId: string;
+  orderNo: number;
+  customerName: string;
+  totalAmount: number;
+  paymentMethod: OrderPaymentMethod;
+  actualPaymentMethod: OrderPaymentMethod;
+  courierName: string;
+  deliveredAt: string;
+}
+
+export interface DailyDeliveryReport {
+  day: string;
+  deliveryCount: number;
+  totalRevenue: number;
+  cashTotal: number;
+  cardTotal: number;
+  paymentMismatchCount: number;
+  byCourier: DailyCourierSummary[];
+  deliveries: DailyDeliveryItem[];
 }
 
 export type NotificationSoundKey = 'sound1' | 'sound2' | 'sound3';

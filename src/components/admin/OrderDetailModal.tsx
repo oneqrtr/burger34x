@@ -2,16 +2,17 @@ import React from 'react';
 import { X, Printer, CheckCircle2 } from 'lucide-react';
 import type { AdminOrder } from '../../types';
 import { formatTry } from '../../utils/formatPrice';
-import { buildOrderReceiptHtml, printOrderTicket } from '../../utils/orderReceipt';
+import { buildCustomerReceiptHtml, printAllOrderTickets } from '../../utils/orderReceipt';
 import { formatOrderDateLabel } from './orderFormat';
 
 interface OrderDetailModalProps {
   order: AdminOrder;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm?: () => void;
+  readOnly?: boolean;
 }
 
-export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, onClose, onConfirm }) => {
+export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, onClose, onConfirm, readOnly }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/10 bg-dark-bg shadow-2xl flex flex-col">
@@ -50,10 +51,10 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, onClo
           </div>
 
           <div className="p-5 bg-white/5 overflow-y-auto">
-            <p className="text-xs uppercase tracking-widest text-white/40 mb-3">Fiş önizleme</p>
+            <p className="text-xs uppercase tracking-widest text-white/40 mb-3">Müşteri fişi önizleme</p>
             <iframe
-              title={`Sipariş fişi #${order.orderNo}`}
-              srcDoc={buildOrderReceiptHtml(order)}
+              title={`Müşteri fişi #${order.orderNo}`}
+              srcDoc={buildCustomerReceiptHtml(order)}
               className="w-full h-[420px] bg-white rounded-lg border border-white/10"
             />
           </div>
@@ -62,12 +63,12 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, onClo
         <div className="flex flex-wrap gap-2 px-5 py-4 border-t border-white/10">
           <button
             type="button"
-            onClick={() => printOrderTicket(order)}
+            onClick={() => void printAllOrderTickets(order)}
             className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-bold flex items-center gap-2"
           >
-            <Printer className="w-4 h-4" /> Yazdır
+            <Printer className="w-4 h-4" /> 3 Fiş Yazdır
           </button>
-          {order.status === 'new' ? (
+          {order.status === 'new' && !readOnly && onConfirm ? (
             <button
               type="button"
               onClick={onConfirm}
