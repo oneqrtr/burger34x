@@ -2,13 +2,9 @@ import type { CMSData } from "../types";
 import { fallbackCmsData } from "../constants/fallbackCmsData";
 import bundledCmsJson from "../cms.json";
 import { getSupabaseBrowserClient } from "../lib/supabaseClient";
+import { requireAdminClient } from "../lib/requireAdminClient";
 
-const ADMIN_PASSWORD = "131094";
-
-function adminCmsPassword(): string {
-  const env = import.meta.env.VITE_ADMIN_CMS_PASSWORD as string | undefined;
-  return (env && env.trim()) || ADMIN_PASSWORD;
-}
+const LEGACY_ADMIN_PASSWORD = "131094";
 
 function apiUrl(path: string): string {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -103,19 +99,23 @@ export async function getCMSData(): Promise<{ data: CMSData; fromApi: boolean }>
 export async function updateCMSData(data: CMSData): Promise<void> {
   const supabase = getSupabaseBrowserClient();
   if (supabase) {
-    const { error } = await supabase.rpc("merge_site_cms", {
-      p_password: adminCmsPassword(),
-      p_payload: data as unknown as Record<string, unknown>,
-    });
-    if (!error) return;
-    console.warn("Supabase CMS kayıt, API deneniyor:", error.message);
+    try {
+      const authed = await requireAdminClient();
+      const { error } = await authed.rpc("merge_site_cms", {
+        p_payload: data as unknown as Record<string, unknown>,
+      });
+      if (!error) return;
+      console.warn("Supabase CMS kayıt, API deneniyor:", error.message);
+    } catch (e) {
+      console.warn("Supabase CMS kayıt (oturum yok), API deneniyor:", e);
+    }
   }
 
   const response = await fetch(apiUrl("/api/cms"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-admin-password": ADMIN_PASSWORD,
+      "x-admin-password": LEGACY_ADMIN_PASSWORD,
     },
     body: JSON.stringify(data),
     credentials: "same-origin",
@@ -161,7 +161,7 @@ export async function uploadCMSImage(file: File): Promise<string> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-admin-password": ADMIN_PASSWORD,
+      "x-admin-password": LEGACY_ADMIN_PASSWORD,
     },
     body: JSON.stringify({
       fileName: file.name,

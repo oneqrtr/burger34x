@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Settings, UtensilsCrossed, ClipboardList, LayoutDashboard, Users, Banknote } from 'lucide-react';
+import { Bell, Settings, UtensilsCrossed, ClipboardList, LayoutDashboard, Users, Banknote, LogOut } from 'lucide-react';
 import { useCMSStore } from '../store/cmsStore';
 import { CMSData, AdminOrder, PanelSettings, CustomerRecord, DashboardStats, NotificationSoundKey } from '../types';
 import {
@@ -11,6 +11,7 @@ import {
   savePanelSettings,
   setOrderStatus,
 } from '../services/orderService';
+import { getAdminSession, onAdminAuthChange, signInAdmin, signOutAdmin } from '../services/adminAuthService';
 import { getSupabaseBrowserClient } from '../lib/supabaseClient';
 import { playNotificationSound } from '../utils/orderSounds';
 import { OrdersSection } from '../components/admin/OrdersSection';
@@ -30,9 +31,11 @@ const SOUND_OPTIONS: Array<{ key: NotificationSoundKey; label: string }> = [
 export const Admin: React.FC = () => {
   const { data, isLoading, fetchData, updateData } = useCMSStore();
   const [localData, setLocalData] = useState<CMSData | null>(null);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem('admin-auth') === 'ok');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [activeSection, setActiveSection] = useState<PanelSection>('orders');
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
@@ -44,6 +47,24 @@ export const Admin: React.FC = () => {
     notificationSoundKey: 'sound1',
   });
   const beepIntervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAdminSession().then((session) => {
+      if (!cancelled) {
+        setIsAuthenticated(Boolean(session));
+        setAuthChecking(false);
+      }
+    });
+    const unsubscribe = onAdminAuthChange((signedIn) => {
+      setIsAuthenticated(signedIn);
+      setAuthChecking(false);
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   const refreshOrders = useCallback(async () => {
     const next = await fetchAdminOrders();
@@ -99,15 +120,26 @@ export const Admin: React.FC = () => {
     };
   }, [isAuthenticated, refreshOrders, refreshDashboard]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === '131094') {
-      sessionStorage.setItem('admin-auth', 'ok');
+    setAuthError('');
+    try {
+      await signInAdmin(email, password);
       setIsAuthenticated(true);
-      setAuthError('');
-      return;
+      setPassword('');
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Giriş başarısız.');
     }
-    setAuthError('Şifre hatalı.');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOutAdmin();
+    } finally {
+      setIsAuthenticated(false);
+      setEmail('');
+      setPassword('');
+    }
   };
 
   const unseenOrders = useMemo(() => orders.filter((o) => !o.seenByAdmin && o.status === 'new'), [orders]);
@@ -146,18 +178,33 @@ export const Admin: React.FC = () => {
     await refreshDashboard();
   };
 
+  if (authChecking) {
+    return <div className="h-screen flex items-center justify-center">Oturum kontrol ediliyor…</div>;
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="pt-32 pb-24 px-8 max-w-md mx-auto">
         <div className="bg-white/5 rounded-2xl p-8 border border-white/10">
           <h1 className="text-3xl font-black mb-2">Yönetim girişi</h1>
-          <p className="text-white/60 text-sm mb-6">Admin paneline erişmek için şifre girin.</p>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <p className="text-white/60 text-sm mb-6">Supabase hesabınızla giriş yapın.</p>
+          <form onSubmit={(e) => void handleLogin(e)} className="space-y-4">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="E-posta"
+              autoComplete="email"
+              required
+              className="w-full bg-dark-bg border border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-accent"
+            />
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Şifre"
+              autoComplete="current-password"
+              required
               className="w-full bg-dark-bg border border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-accent"
             />
             {authError && <p className="text-red-400 text-sm">{authError}</p>}
@@ -205,8 +252,15 @@ export const Admin: React.FC = () => {
           {navButton('customers', <span className="flex items-center gap-2"><Users className="w-4 h-4" /> Müşteriler</span>)}
           {navButton('menu', <span className="flex items-center gap-2"><UtensilsCrossed className="w-4 h-4" /> Menü Yönetimi</span>)}
           {navButton('prices', <span className="flex items-center gap-2"><Banknote className="w-4 h-4" /> Fiyatlar</span>)}
-          <div className="mt-auto">
+          <div className="mt-auto space-y-2">
             {navButton('settings', <span className="flex items-center gap-2"><Settings className="w-4 h-4" /> Ayarlar</span>)}
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              className="w-full flex items-center gap-2 rounded-xl px-4 py-3 text-left font-bold bg-white/5 text-white/70 hover:bg-white/10"
+            >
+              <LogOut className="w-4 h-4" /> Çıkış
+            </button>
           </div>
         </aside>
 

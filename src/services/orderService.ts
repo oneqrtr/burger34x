@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "../lib/supabaseClient";
+import { requireAdminClient } from "../lib/requireAdminClient";
 import { formatMonthLabel } from "../utils/orderDate";
 import type {
   AdminOrder,
@@ -11,13 +12,6 @@ import type {
   PanelSettings,
   PublicOrderPayload,
 } from "../types";
-
-const ADMIN_PIN = "131094";
-
-function adminPin(): string {
-  const raw = import.meta.env.VITE_ADMIN_CMS_PASSWORD as string | undefined;
-  return (raw && raw.trim()) || ADMIN_PIN;
-}
 
 type OrderRow = {
   id: string;
@@ -131,23 +125,17 @@ export async function submitPublicOrder(payload: PublicOrderPayload): Promise<vo
 }
 
 export async function fetchAdminOrders(): Promise<AdminOrder[]> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+  const supabase = await requireAdminClient();
 
-  const { data, error } = await supabase.rpc("get_admin_orders", {
-    p_password: adminPin(),
-  });
+  const { data, error } = await supabase.rpc("get_admin_orders");
   if (error) throw new Error(error.message || "Siparişler yüklenemedi.");
   return ((data || []) as OrderRow[]).map(rowToOrder);
 }
 
 export async function fetchAdminCustomers(): Promise<CustomerRecord[]> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+  const supabase = await requireAdminClient();
 
-  const { data, error } = await supabase.rpc("get_admin_customers", {
-    p_password: adminPin(),
-  });
+  const { data, error } = await supabase.rpc("get_admin_customers");
   if (error) throw new Error(error.message || "Müşteriler yüklenemedi.");
   return ((data || []) as CustomerRow[]).map(rowToCustomer);
 }
@@ -158,11 +146,9 @@ export async function updateCustomerRecord(
   phone: string,
   address: OrderAddress,
 ): Promise<void> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+  const supabase = await requireAdminClient();
 
   const { error } = await supabase.rpc("update_customer_admin", {
-    p_password: adminPin(),
     p_customer_id: customerId,
     p_name: name.trim(),
     p_phone: phone.trim(),
@@ -172,12 +158,9 @@ export async function updateCustomerRecord(
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+  const supabase = await requireAdminClient();
 
-  const { data, error } = await supabase.rpc("get_order_dashboard_stats", {
-    p_password: adminPin(),
-  });
+  const { data, error } = await supabase.rpc("get_order_dashboard_stats");
   if (error) throw new Error(error.message || "Dashboard yüklenemedi.");
 
   const raw = (data || {}) as {
@@ -206,11 +189,9 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
 }
 
 export async function setOrderStatus(orderId: string, status: "preparing" | "cancelled"): Promise<void> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+  const supabase = await requireAdminClient();
 
   const { error } = await supabase.rpc("update_order_admin", {
-    p_password: adminPin(),
     p_order_id: orderId,
     p_status: status,
     p_seen: true,
@@ -220,12 +201,10 @@ export async function setOrderStatus(orderId: string, status: "preparing" | "can
 
 export async function markOrdersSeen(orderIds: string[]): Promise<void> {
   if (orderIds.length === 0) return;
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+  const supabase = await requireAdminClient();
 
   for (const id of orderIds) {
     const { error } = await supabase.rpc("update_order_admin", {
-      p_password: adminPin(),
       p_order_id: id,
       p_status: null,
       p_seen: true,
@@ -264,8 +243,7 @@ export async function fetchPanelSettings(): Promise<PanelSettings> {
 }
 
 export async function savePanelSettings(next: PanelSettings): Promise<void> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) throw new Error("Supabase yapılandırması eksik.");
+  const supabase = await requireAdminClient();
 
   const { error } = await supabase.from("panel_settings").upsert({
     id: 1,
