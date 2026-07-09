@@ -28,7 +28,6 @@ function securityHeadersPlugin(command: string, env: Record<string, string>): Pl
           "img-src 'self' https: data: blob:",
           "font-src 'self' https://fonts.gstatic.com data:",
           `connect-src ${connectParts.join(' ')}`,
-          "frame-ancestors 'none'",
           "base-uri 'self'",
           "form-action 'self'",
           'upgrade-insecure-requests',
