@@ -15,7 +15,7 @@ export const AdminHeader: React.FC = () => {
       <div className="flex items-center gap-4 shrink-0 min-w-0">
         <Link to="/admin" className="flex items-center gap-3 shrink-0">
           <img
-            src={publicAssetUrl('/logo_final.png')}
+            src={publicAssetUrl('/logo_final_vectorized.png')}
             alt="Burger34"
             className="h-10 w-auto"
           />

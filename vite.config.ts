@@ -62,13 +62,13 @@ export default defineConfig(({mode, command}) => {
           scope: '/',
           icons: [
             {
-              src: '/logo.png',
+              src: '/logo_final_vectorized.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/logo.png',
+              src: '/logo_final_vectorized.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable',
