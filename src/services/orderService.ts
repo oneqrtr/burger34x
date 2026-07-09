@@ -11,9 +11,11 @@ import type {
   OrderAddress,
   OrderItemSnapshot,
   OrderPaymentMethod,
+  OrderSource,
   OrderStatus,
   PanelSettings,
   PublicOrderPayload,
+  AdminPhoneOrderPayload,
 } from "../types";
 
 type OrderRow = {
@@ -29,6 +31,7 @@ type OrderRow = {
   created_at: string;
   delivered_at: string | null;
   seen_by_admin: boolean;
+  order_source: OrderSource | null;
   total_amount: number;
   courier_id: string | null;
   courier_first_name: string | null;
@@ -94,6 +97,7 @@ function rowToOrder(row: OrderRow): AdminOrder {
     createdAt: row.created_at,
     deliveredAt: row.delivered_at,
     seenByAdmin: row.seen_by_admin,
+    orderSource: row.order_source || 'web',
     totalAmount: row.total_amount,
     actualPaymentMethod: row.actual_payment_method,
     courierId: row.courier_id,
@@ -157,6 +161,31 @@ export async function submitPublicOrder(payload: PublicOrderPayload): Promise<vo
   });
 
   if (error) throw new Error(error.message || "Sipariş gönderilemedi.");
+}
+
+export async function submitAdminPhoneOrder(payload: AdminPhoneOrderPayload): Promise<void> {
+  const supabase = await requireAdminClient();
+
+  const items = normalizeItems(payload.items);
+  if (items.length === 0) throw new Error("Siparişte ürün bulunamadı.");
+
+  const { error } = await supabase.rpc("create_admin_order", {
+    p_payload: {
+      customer_name: payload.customerName.trim(),
+      customer_phone: payload.phone.trim(),
+      address_json: payload.address,
+      payment_method: payload.paymentMethod,
+      note: payload.note?.trim() || null,
+      items: items.map((i) => ({
+        product_id: i.productId,
+        item_name_snapshot: i.name,
+        unit_price_snapshot: i.unitPrice,
+        quantity: i.quantity,
+      })),
+    },
+  });
+
+  if (error) throw new Error(error.message || "Sipariş oluşturulamadı.");
 }
 
 export async function fetchAdminOrders(): Promise<AdminOrder[]> {

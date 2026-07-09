@@ -24,6 +24,8 @@ import { MenuManagementSection } from '../components/admin/MenuManagementSection
 import { PricesSection } from '../components/admin/PricesSection';
 import { PaketSection } from '../components/admin/PaketSection';
 import { CouriersSettingsSection } from '../components/admin/CouriersSettingsSection';
+import { PaketSiparisiModal } from '../components/admin/PaketSiparisiModal';
+import { useAdminCartStore } from '../store/adminCartStore';
 import { toLocalDateIso, startOfLocalDay } from '../utils/orderDate';
 
 type PanelSection = 'dashboard' | 'orders' | 'paket' | 'customers' | 'menu' | 'prices' | 'settings';
@@ -57,6 +59,8 @@ export const Admin: React.FC = () => {
     notificationSoundKey: 'sound1',
   });
   const beepIntervalRef = useRef<number | null>(null);
+  const adminCartOpen = useAdminCartStore((s) => s.isOpen);
+  const setAdminCartOpen = useAdminCartStore((s) => s.setIsOpen);
 
   useEffect(() => {
     let cancelled = false;
@@ -422,6 +426,18 @@ export const Admin: React.FC = () => {
           )}
         </main>
       </div>
+
+      {adminCartOpen && localData ? (
+        <PaketSiparisiModal
+          data={localData}
+          customers={customers}
+          onClose={() => setAdminCartOpen(false)}
+          onSuccess={async () => {
+            await refreshOrders();
+            await refreshCustomers();
+          }}
+        />
+      ) : null}
     </div>
   );
 };

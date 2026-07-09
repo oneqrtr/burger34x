@@ -85,6 +85,7 @@ export interface CMSData {
 
 export type OrderPaymentMethod = "cash" | "card_on_delivery";
 export type OrderStatus = "new" | "preparing" | "cancelled" | "delivered";
+export type OrderSource = "web" | "admin";
 
 export interface OrderAddress {
   neighborhood: string;
@@ -116,6 +117,15 @@ export interface PublicOrderPayload {
   website?: string;
 }
 
+export interface AdminPhoneOrderPayload {
+  customerName: string;
+  phone: string;
+  address: OrderAddress;
+  paymentMethod: OrderPaymentMethod;
+  items: OrderItemSnapshot[];
+  note?: string;
+}
+
 export interface AdminOrder extends PublicOrderPayload {
   id: string;
   orderNo: number;
@@ -123,6 +133,7 @@ export interface AdminOrder extends PublicOrderPayload {
   createdAt: string;
   seenByAdmin: boolean;
   totalAmount: number;
+  orderSource?: OrderSource;
   deliveredAt?: string | null;
   actualPaymentMethod?: OrderPaymentMethod | null;
   courierId?: string | null;

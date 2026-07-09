@@ -91,6 +91,11 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
               <div className="flex justify-between items-start gap-3">
                 <div>
                   <p className="font-black">#{order.orderNo} • {order.customerName}</p>
+                  {order.orderSource === 'admin' ? (
+                    <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wide bg-orange-accent/20 text-orange-accent px-2 py-0.5 rounded">
+                      Paket Siparişi
+                    </span>
+                  ) : null}
                   <p className="text-xs text-white/60">{order.phone}</p>
                   <p className="text-xs text-white/40 mt-1">{formatOrderDateLabel(order.createdAt)}</p>
                 </div>
