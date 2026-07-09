@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -26,9 +26,7 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
   onChange,
   onSave,
 }) => {
-  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(
-    data.categories[0]?.id ?? null,
-  );
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [uploadingProductId, setUploadingProductId] = useState<string | null>(null);
@@ -37,16 +35,39 @@ export const MenuManagementSection: React.FC<MenuManagementSectionProps> = ({
 
   const scrollToAccordion = useCallback(() => {
     requestAnimationFrame(() => {
-      accordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const target = accordionRef.current;
+      if (!target) return;
+
+      const main = document.getElementById('admin-main-panel');
+      if (main) {
+        const mainTop = main.getBoundingClientRect().top;
+        const targetTop = target.getBoundingClientRect().top;
+        main.scrollBy({ top: targetTop - mainTop - 12, behavior: 'smooth' });
+        return;
+      }
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   }, []);
+
+  useEffect(() => {
+    if (expandedCategoryId && !data.categories.some((c) => c.id === expandedCategoryId)) {
+      setExpandedCategoryId(null);
+      setEditingProductId(null);
+    }
+  }, [data.categories, expandedCategoryId]);
 
   const expandCategory = useCallback(
     (categoryId: string) => {
       setExpandedCategoryId(categoryId);
+      setEditingProductId((prev) => {
+        if (!prev) return null;
+        const product = data.products.find((p) => p.id === prev);
+        return product?.categoryId === categoryId ? prev : null;
+      });
       scrollToAccordion();
     },
-    [scrollToAccordion],
+    [data.products, scrollToAccordion],
   );
 
   const toggleCategory = useCallback(

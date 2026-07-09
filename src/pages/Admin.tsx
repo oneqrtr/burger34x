@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, Settings, UtensilsCrossed, ClipboardList, LayoutDashboard, Users, Banknote, LogOut, Package } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import { useCMSStore } from '../store/cmsStore';
 import { CMSData, AdminOrder, PanelSettings, CustomerRecord, DashboardStats, NotificationSoundKey, Courier, DailyDeliveryReport } from '../types';
 import {
@@ -294,7 +295,10 @@ export const Admin: React.FC = () => {
   const navButton = (section: PanelSection, label: React.ReactNode) => (
     <button
       type="button"
-      onClick={() => setActiveSection(section)}
+      onClick={() => {
+        setAdminCartOpen(false);
+        setActiveSection(section);
+      }}
       className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left font-bold mb-2 ${
         activeSection === section ? 'bg-burgundy text-white' : 'bg-white/5 text-white/70'
       }`}
@@ -347,8 +351,11 @@ export const Admin: React.FC = () => {
           </div>
         </aside>
 
-        <main className="col-span-12 md:col-span-9 p-6 md:p-8">
-          {activeSection === 'dashboard' && (
+        <main
+          id="admin-main-panel"
+          className="col-span-12 md:col-span-9 p-6 md:p-8 overflow-y-auto max-h-[calc(100vh-5rem)]"
+        >
+          <div className={activeSection === 'dashboard' ? '' : 'hidden'}>
             <DashboardSection
               stats={dashboardStats}
               dailyReport={dailyReport}
@@ -357,9 +364,9 @@ export const Admin: React.FC = () => {
               loading={dashboardLoading}
               dailyLoading={dailyLoading}
             />
-          )}
+          </div>
 
-          {activeSection === 'orders' && (
+          <div className={activeSection === 'orders' ? '' : 'hidden'}>
             <OrdersSection
               orders={orders}
               onRefresh={refreshOrders}
@@ -367,39 +374,38 @@ export const Admin: React.FC = () => {
               onConfirmOrder={handleConfirmOrder}
               onCancelOrder={handleCancelOrder}
             />
-          )}
+          </div>
 
-          {activeSection === 'paket' && (
+          <div className={activeSection === 'paket' ? '' : 'hidden'}>
             <PaketSection
               orders={orders}
               couriers={couriers}
               onRefresh={refreshOrders}
               onDeliver={handleDeliverOrder}
             />
-          )}
+          </div>
 
-          {activeSection === 'customers' && (
+          <div className={activeSection === 'customers' ? '' : 'hidden'}>
             <CustomersSection customers={customers} onRefresh={refreshCustomers} />
-          )}
+          </div>
 
-          {activeSection === 'menu' && (
+          <div className={activeSection === 'menu' ? '' : 'hidden'}>
             <MenuManagementSection
               data={panelData}
               onChange={setLocalData}
               onSave={updateData}
             />
-          )}
+          </div>
 
-          {activeSection === 'prices' && (
+          <div className={activeSection === 'prices' ? '' : 'hidden'}>
             <PricesSection
               data={panelData}
               onChange={setLocalData}
               onSave={updateData}
             />
-          )}
+          </div>
 
-          {activeSection === 'settings' && (
-            <div className="max-w-xl space-y-5">
+          <div className={activeSection === 'settings' ? 'max-w-xl space-y-5' : 'hidden'}>
               <CouriersSettingsSection couriers={couriers} onRefresh={refreshCouriers} />
               <div className="rounded-xl border border-white/10 bg-white/5 p-6 space-y-5">
               <h3 className="text-xl font-black">Panel Ayarları</h3>
@@ -445,23 +451,25 @@ export const Admin: React.FC = () => {
               </button>
               </div>
               <ResetOrdersSection onReset={handleResetOrders} />
-            </div>
-          )}
+          </div>
         </main>
       </div>
       </div>
 
-      {adminCartOpen ? (
-        <PaketSiparisiModal
-          data={panelData}
-          customers={customers}
-          onClose={() => setAdminCartOpen(false)}
-          onSuccess={async () => {
-            await refreshOrders();
-            await refreshCustomers();
-          }}
-        />
-      ) : null}
+      <AnimatePresence>
+        {adminCartOpen ? (
+          <PaketSiparisiModal
+            key="paket-siparisi"
+            data={panelData}
+            customers={customers}
+            onClose={() => setAdminCartOpen(false)}
+            onSuccess={async () => {
+              await refreshOrders();
+              await refreshCustomers();
+            }}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 };

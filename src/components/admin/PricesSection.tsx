@@ -57,7 +57,7 @@ export const PricesSection: React.FC<PricesSectionProps> = ({ data, onChange, on
   };
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="space-y-6 pb-8">
       <div>
         <h2 className="text-2xl font-black">Fiyatlar</h2>
         <p className="text-sm text-white/50 mt-1">
@@ -128,7 +128,7 @@ export const PricesSection: React.FC<PricesSectionProps> = ({ data, onChange, on
         })}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 md:left-[25%] z-30 border-t border-white/10 bg-dark-bg/95 backdrop-blur-md px-6 md:px-8 py-4">
+      <div className="sticky bottom-0 z-10 -mx-1 mt-8 border-t border-white/10 bg-dark-bg/95 backdrop-blur-md px-1 py-4">
         <div className="max-w-3xl flex items-center justify-between gap-4">
           <p className="text-xs text-white/50">
             {hasChanges ? 'Kaydedilmemiş değişiklik var.' : 'Tüm fiyatlar güncel.'}
