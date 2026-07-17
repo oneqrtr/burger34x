@@ -183,12 +183,21 @@ export interface DailyDeliveryReport {
   deliveries: DailyDeliveryItem[];
 }
 
-export type NotificationSoundKey = 'sound1' | 'sound2' | 'sound3';
+export type NotificationSoundKey = 'sound1' | 'sound2' | 'sound3' | 'custom';
 
 export interface PanelSettings {
   notificationSoundEnabled: boolean;
   autoPrintNewOrder: boolean;
   notificationSoundKey: NotificationSoundKey;
+  notificationSoundCustomUrl: string | null;
+  deliveryAutoSchedule: boolean;
+  deliveryOpenTime: string;
+  deliveryCloseTime: string;
+  deliveryOpen: boolean;
+}
+
+export interface ShopStatus {
+  deliveryOpen: boolean;
 }
 
 export interface CustomerRecord {

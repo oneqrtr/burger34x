@@ -10,10 +10,13 @@ import {
   fetchDailyDeliveryReport,
   fetchPanelSettings,
   fetchCouriers,
+  fetchShopStatus,
   markOrdersSeen,
   savePanelSettings,
+  setDeliveryOpen,
   setOrderStatus,
   completeOrderDelivery,
+  uploadNotificationSound,
 } from '../services/orderService';
 import { getAdminSession, onAdminAuthChange, signInAdmin, signOutAdmin } from '../services/adminAuthService';
 import { getSupabaseBrowserClient } from '../lib/supabaseClient';
@@ -38,6 +41,7 @@ const SOUND_OPTIONS: Array<{ key: NotificationSoundKey; label: string }> = [
   { key: 'sound1', label: 'Klasik bip' },
   { key: 'sound2', label: 'Çift bip' },
   { key: 'sound3', label: 'Zil' },
+  { key: 'custom', label: 'Özel ses (yüklediğiniz MP3)' },
 ];
 
 export const Admin: React.FC = () => {
@@ -61,7 +65,15 @@ export const Admin: React.FC = () => {
     notificationSoundEnabled: true,
     autoPrintNewOrder: false,
     notificationSoundKey: 'sound1',
+    notificationSoundCustomUrl: null,
+    deliveryAutoSchedule: true,
+    deliveryOpenTime: '12:00',
+    deliveryCloseTime: '22:00',
+    deliveryOpen: true,
   });
+  const [deliveryOpenEffective, setDeliveryOpenEffective] = useState(true);
+  const [deliveryToggling, setDeliveryToggling] = useState(false);
+  const [soundUploading, setSoundUploading] = useState(false);
   const beepIntervalRef = useRef<number | null>(null);
   const adminCartOpen = useAdminCartStore((s) => s.isOpen);
   const setAdminCartOpen = useAdminCartStore((s) => s.setIsOpen);
@@ -123,6 +135,11 @@ export const Admin: React.FC = () => {
     }
   }, []);
 
+  const refreshShopStatus = useCallback(async () => {
+    const status = await fetchShopStatus();
+    setDeliveryOpenEffective(status.deliveryOpen);
+  }, []);
+
   useEffect(() => {
     if (!isAuthenticated) return;
     void fetchData();
@@ -132,7 +149,38 @@ export const Admin: React.FC = () => {
     void refreshDashboard().catch(() => undefined);
     void refreshDailyReport(dashboardDay).catch(() => undefined);
     void fetchPanelSettings().then(setSettingsData).catch(() => undefined);
-  }, [isAuthenticated, fetchData, refreshOrders, refreshCouriers, refreshCustomers, refreshDashboard, refreshDailyReport, dashboardDay]);
+    void refreshShopStatus().catch(() => undefined);
+  }, [isAuthenticated, fetchData, refreshOrders, refreshCouriers, refreshCustomers, refreshDashboard, refreshDailyReport, dashboardDay, refreshShopStatus]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = window.setInterval(() => {
+      void refreshShopStatus().catch(() => undefined);
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, [isAuthenticated, refreshShopStatus]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('panel-settings-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'panel_settings' },
+        () => {
+          void refreshShopStatus().catch(() => undefined);
+          void fetchPanelSettings().then(setSettingsData).catch(() => undefined);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated, refreshShopStatus]);
 
   useEffect(() => {
     if (data) setLocalData(JSON.parse(JSON.stringify(data)));
@@ -214,13 +262,43 @@ export const Admin: React.FC = () => {
     }
 
     if (!beepIntervalRef.current) {
-      playNotificationSound(settingsData.notificationSoundKey);
+      playNotificationSound(settingsData.notificationSoundKey, settingsData.notificationSoundCustomUrl);
       beepIntervalRef.current = window.setInterval(
-        () => playNotificationSound(settingsData.notificationSoundKey),
+        () => playNotificationSound(settingsData.notificationSoundKey, settingsData.notificationSoundCustomUrl),
         1800,
       );
     }
-  }, [settingsData.notificationSoundEnabled, settingsData.notificationSoundKey, unseenOrders.length]);
+  }, [settingsData.notificationSoundEnabled, settingsData.notificationSoundKey, settingsData.notificationSoundCustomUrl, unseenOrders.length]);
+
+  const handleDeliveryToggle = async () => {
+    setDeliveryToggling(true);
+    try {
+      await setDeliveryOpen(!deliveryOpenEffective);
+      await refreshShopStatus();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Paket servisi durumu güncellenemedi.');
+    } finally {
+      setDeliveryToggling(false);
+    }
+  };
+
+  const handleSoundFileSelect = async (file: File | null) => {
+    if (!file) return;
+    setSoundUploading(true);
+    try {
+      const url = await uploadNotificationSound(file);
+      setSettingsData((s) => ({
+        ...s,
+        notificationSoundKey: 'custom',
+        notificationSoundCustomUrl: url,
+      }));
+      playNotificationSound('custom', url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ses dosyası yüklenemedi.');
+    } finally {
+      setSoundUploading(false);
+    }
+  };
 
   const handleMarkSeen = (orderId: string) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, seenByAdmin: true } : o)));
@@ -286,7 +364,11 @@ export const Admin: React.FC = () => {
   if (isLoading && !data && !localData) {
     return (
       <div className="min-h-screen bg-dark-bg">
-        <AdminHeader />
+        <AdminHeader
+          deliveryOpen={deliveryOpenEffective}
+          deliveryToggling={deliveryToggling}
+          onDeliveryToggle={() => void handleDeliveryToggle()}
+        />
         <div className="pt-32 flex items-center justify-center text-white/60">Panel yükleniyor…</div>
       </div>
     );
@@ -309,7 +391,11 @@ export const Admin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-dark-bg">
-      <AdminHeader />
+      <AdminHeader
+        deliveryOpen={deliveryOpenEffective}
+        deliveryToggling={deliveryToggling}
+        onDeliveryToggle={() => void handleDeliveryToggle()}
+      />
       <div className="pt-20 min-h-screen">
       <div className="grid grid-cols-12 min-h-[calc(100vh-5rem)]">
         <aside className="col-span-12 md:col-span-3 border-r border-white/10 bg-black/20 p-4 flex flex-col md:sticky md:top-20 md:h-[calc(100vh-5rem)]">
@@ -409,6 +495,42 @@ export const Admin: React.FC = () => {
               <CouriersSettingsSection couriers={couriers} onRefresh={refreshCouriers} />
               <div className="rounded-xl border border-white/10 bg-white/5 p-6 space-y-5">
               <h3 className="text-xl font-black">Panel Ayarları</h3>
+
+              <div className="rounded-lg bg-dark-bg px-4 py-4 space-y-3">
+                <p className="text-sm font-bold">Paket servisi saatleri</p>
+                <label className="flex items-center justify-between text-sm text-white/80">
+                  <span>Otomatik açılış/kapanış</span>
+                  <input
+                    type="checkbox"
+                    checked={settingsData.deliveryAutoSchedule}
+                    onChange={(e) => setSettingsData((s) => ({ ...s, deliveryAutoSchedule: e.target.checked }))}
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm text-white/70 space-y-1">
+                    <span>Açılış</span>
+                    <input
+                      type="time"
+                      value={settingsData.deliveryOpenTime}
+                      onChange={(e) => setSettingsData((s) => ({ ...s, deliveryOpenTime: e.target.value }))}
+                      className="w-full bg-dark-bg border border-white/10 rounded-lg px-3 py-2"
+                    />
+                  </label>
+                  <label className="text-sm text-white/70 space-y-1">
+                    <span>Kapanış</span>
+                    <input
+                      type="time"
+                      value={settingsData.deliveryCloseTime}
+                      onChange={(e) => setSettingsData((s) => ({ ...s, deliveryCloseTime: e.target.value }))}
+                      className="w-full bg-dark-bg border border-white/10 rounded-lg px-3 py-2"
+                    />
+                  </label>
+                </div>
+                <p className="text-xs text-white/40">
+                  Otomatik modda paket servisi bu saatler arasında açılır. Yoğunlukta header&apos;daki anahtardan kapatabilirsiniz.
+                </p>
+              </div>
+
               <label className="flex items-center justify-between rounded-lg bg-dark-bg px-4 py-3">
                 <span className="flex items-center gap-2"><Bell className="w-4 h-4" /> Bildirim sesi</span>
                 <input
@@ -425,15 +547,30 @@ export const Admin: React.FC = () => {
                       type="radio"
                       name="notification-sound"
                       checked={settingsData.notificationSoundKey === opt.key}
+                      disabled={opt.key === 'custom' && !settingsData.notificationSoundCustomUrl}
                       onChange={() => {
                         setSettingsData((s) => ({ ...s, notificationSoundKey: opt.key }));
-                        playNotificationSound(opt.key);
+                        playNotificationSound(opt.key, settingsData.notificationSoundCustomUrl);
                       }}
                     />
                     {opt.label}
                   </label>
                 ))}
-                <p className="text-xs text-white/40">MP3 dosyalarını public/sounds/order-1.mp3, order-2.mp3, order-3.mp3 olarak ekleyebilirsiniz.</p>
+                <div className="pt-2 space-y-2 border-t border-white/10">
+                  <p className="text-sm font-bold">Kendi sesinizi yükleyin (MP3, max 2 MB)</p>
+                  <input
+                    type="file"
+                    accept="audio/mpeg,.mp3"
+                    disabled={soundUploading}
+                    onChange={(e) => void handleSoundFileSelect(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-burgundy file:px-3 file:py-2 file:text-sm file:font-bold file:text-white"
+                  />
+                  {soundUploading ? <p className="text-xs text-white/50">Yükleniyor…</p> : null}
+                  {settingsData.notificationSoundCustomUrl ? (
+                    <p className="text-xs text-emerald-400">Özel ses yüklendi.</p>
+                  ) : null}
+                </div>
+                <p className="text-xs text-white/40">Hazır sesler public/sounds/order-1.mp3, order-2.mp3, order-3.mp3 dosyalarından çalınır.</p>
               </div>
               <label className="flex items-center justify-between rounded-lg bg-dark-bg px-4 py-3">
                 <span className="flex items-center gap-2">Yeni siparişte otomatik yazdır</span>
@@ -444,7 +581,10 @@ export const Admin: React.FC = () => {
                 />
               </label>
               <button
-                onClick={() => void savePanelSettings(settingsData).then(() => alert('Ayarlar kaydedildi.'))}
+                onClick={() => void savePanelSettings(settingsData).then(async () => {
+                  await refreshShopStatus();
+                  alert('Ayarlar kaydedildi.');
+                })}
                 className="bg-burgundy text-white px-6 py-3 rounded-xl font-bold hover:bg-burgundy/80"
               >
                 Ayarları Kaydet

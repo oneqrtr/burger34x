@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Plus } from 'lucide-react';
 import { Product } from '../types';
 import { useCartStore } from '../store/cartStore';
+import { useShopStatusStore } from '../store/shopStatusStore';
 import { formatTry } from '../utils/formatPrice';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
 import { productHasImage } from '../utils/productImage';
@@ -13,6 +14,7 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const addItem = useCartStore(state => state.addItem);
+  const deliveryOpen = useShopStatusStore((s) => s.deliveryOpen);
   const hasImage = productHasImage(product.image);
 
   if (!hasImage) {
@@ -37,13 +39,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
           <p className="text-white/60 text-sm leading-relaxed line-clamp-2">{product.description}</p>
         </div>
-        <button
-          onClick={() => addItem(product)}
-          className="shrink-0 bg-white/5 hover:bg-burgundy text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Sepete ekle
-        </button>
+        {deliveryOpen ? (
+          <button
+            onClick={() => addItem(product)}
+            className="shrink-0 bg-white/5 hover:bg-burgundy text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Sepete ekle
+          </button>
+        ) : null}
       </motion.div>
     );
   }
@@ -79,13 +83,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <p className="text-white/60 text-sm leading-relaxed mb-6 line-clamp-2">
           {product.description}
         </p>
-        <button
-          onClick={() => addItem(product)}
-          className="w-full bg-white/5 hover:bg-burgundy text-white py-3 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 group/btn"
-        >
-          <Plus className="w-5 h-5 group-hover/btn:rotate-90 transition-transform" />
-          Sepete ekle
-        </button>
+        {deliveryOpen ? (
+          <button
+            onClick={() => addItem(product)}
+            className="w-full bg-white/5 hover:bg-burgundy text-white py-3 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 group/btn"
+          >
+            <Plus className="w-5 h-5 group-hover/btn:rotate-90 transition-transform" />
+            Sepete ekle
+          </button>
+        ) : null}
       </div>
     </motion.div>
   );

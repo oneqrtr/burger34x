@@ -16,6 +16,7 @@ import type {
   PanelSettings,
   PublicOrderPayload,
   AdminPhoneOrderPayload,
+  ShopStatus,
 } from "../types";
 
 type OrderRow = {
@@ -287,11 +288,39 @@ const DEFAULT_SETTINGS: PanelSettings = {
   notificationSoundEnabled: true,
   autoPrintNewOrder: false,
   notificationSoundKey: "sound1",
+  notificationSoundCustomUrl: null,
+  deliveryAutoSchedule: true,
+  deliveryOpenTime: "12:00",
+  deliveryCloseTime: "22:00",
+  deliveryOpen: true,
 };
 
 function parseSoundKey(value: unknown): NotificationSoundKey {
-  if (value === "sound2" || value === "sound3") return value;
+  if (value === "sound2" || value === "sound3" || value === "custom") return value;
   return "sound1";
+}
+
+function parseTimeValue(value: unknown, fallback: string): string {
+  if (typeof value !== "string" || !value.trim()) return fallback;
+  const match = value.trim().match(/^(\d{2}:\d{2})/);
+  return match ? match[1] : fallback;
+}
+
+export async function fetchShopStatus(): Promise<ShopStatus> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return { deliveryOpen: true };
+
+  const { data, error } = await supabase.rpc("get_shop_status");
+  if (error) return { deliveryOpen: true };
+
+  const raw = (data || {}) as { delivery_open?: boolean };
+  return { deliveryOpen: Boolean(raw.delivery_open) };
+}
+
+export async function setDeliveryOpen(open: boolean): Promise<void> {
+  const supabase = await requireAdminClient();
+  const { error } = await supabase.rpc("set_delivery_open", { p_open: open });
+  if (error) throw new Error(error.message || "Paket servisi durumu güncellenemedi.");
 }
 
 export async function fetchPanelSettings(): Promise<PanelSettings> {
@@ -300,7 +329,9 @@ export async function fetchPanelSettings(): Promise<PanelSettings> {
 
   const { data, error } = await supabase
     .from("panel_settings")
-    .select("notification_sound_enabled,auto_print_new_order,notification_sound_key")
+    .select(
+      "notification_sound_enabled,auto_print_new_order,notification_sound_key,notification_sound_custom_url,delivery_auto_schedule,delivery_open_time,delivery_close_time,delivery_open",
+    )
     .eq("id", 1)
     .maybeSingle();
 
@@ -309,6 +340,11 @@ export async function fetchPanelSettings(): Promise<PanelSettings> {
     notificationSoundEnabled: Boolean(data.notification_sound_enabled),
     autoPrintNewOrder: Boolean(data.auto_print_new_order),
     notificationSoundKey: parseSoundKey(data.notification_sound_key),
+    notificationSoundCustomUrl: data.notification_sound_custom_url || null,
+    deliveryAutoSchedule: Boolean(data.delivery_auto_schedule),
+    deliveryOpenTime: parseTimeValue(data.delivery_open_time, "12:00"),
+    deliveryCloseTime: parseTimeValue(data.delivery_close_time, "22:00"),
+    deliveryOpen: Boolean(data.delivery_open),
   };
 }
 
@@ -320,8 +356,46 @@ export async function savePanelSettings(next: PanelSettings): Promise<void> {
     notification_sound_enabled: next.notificationSoundEnabled,
     auto_print_new_order: next.autoPrintNewOrder,
     notification_sound_key: next.notificationSoundKey,
+    notification_sound_custom_url: next.notificationSoundCustomUrl,
+    delivery_auto_schedule: next.deliveryAutoSchedule,
+    delivery_open_time: next.deliveryOpenTime,
+    delivery_close_time: next.deliveryCloseTime,
+    delivery_open: next.deliveryOpen,
   });
   if (error) throw new Error(error.message || "Ayarlar kaydedilemedi.");
+}
+
+function safeFileBase(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "") || "sound";
+}
+
+export async function uploadNotificationSound(file: File): Promise<string> {
+  if (!file.name.toLowerCase().endsWith(".mp3") && file.type !== "audio/mpeg") {
+    throw new Error("Yalnızca MP3 dosyası yükleyebilirsiniz.");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("Dosya boyutu en fazla 2 MB olabilir.");
+  }
+
+  const supabase = await requireAdminClient();
+  const bucket = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string | undefined)?.trim();
+
+  if (!bucket) {
+    throw new Error("Ses yükleme için Supabase Storage yapılandırması gerekli.");
+  }
+
+  const objectPath = `sounds/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeFileBase(file.name)}.mp3`;
+
+  const { error } = await supabase.storage.from(bucket).upload(objectPath, file, {
+    contentType: "audio/mpeg",
+    upsert: false,
+  });
+
+  if (error) throw new Error(error.message || "Ses dosyası yüklenemedi.");
+
+  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  if (!pub?.publicUrl) throw new Error("Ses dosyası URL'si alınamadı.");
+  return pub.publicUrl;
 }
 
 export async function fetchCouriers(): Promise<Courier[]> {

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
+import { useShopStatusStore } from '../store/shopStatusStore';
 import { Link, useLocation } from 'react-router-dom';
 import { useCMSStore } from '../store/cmsStore';
 import { fallbackCmsData } from '../constants/fallbackCmsData';
@@ -19,6 +20,7 @@ export const Header: React.FC = () => {
   const cartItemsCount = useCartStore((state) =>
     state.items.reduce((acc, item) => acc + item.quantity, 0),
   );
+  const deliveryOpen = useShopStatusStore((s) => s.deliveryOpen);
   const { data, fetchData } = useCMSStore();
   const cmsData = data ?? fallbackCmsData;
   const { pathname } = useLocation();
@@ -79,7 +81,13 @@ export const Header: React.FC = () => {
 
       <div className="flex items-center gap-4 shrink-0">
         <button
-          onClick={() => setIsCartOpen(true)}
+          onClick={() => {
+            if (!deliveryOpen) {
+              window.alert('Restoran şu an paket servise kapalı.');
+              return;
+            }
+            setIsCartOpen(true);
+          }}
           className="relative p-2 hover:bg-white/10 rounded-full transition-colors"
           aria-label="Sipariş sepeti"
         >

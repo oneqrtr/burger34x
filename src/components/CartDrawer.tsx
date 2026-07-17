@@ -8,12 +8,14 @@ import { formatTry } from '../utils/formatPrice';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
 import { productHasImage } from '../utils/productImage';
 import { submitPublicOrder } from '../services/orderService';
+import { useShopStatusStore } from '../store/shopStatusStore';
 import { loadCustomerProfile, saveCustomerProfile, hasKvkkConsent } from '../utils/customerStorage';
 import { canSubmitOrderNow, markOrderSubmitted } from '../utils/orderSpamGuard';
 import type { OrderPaymentMethod } from '../types';
 
 export const CartDrawer: React.FC = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeItem, totalPrice, clearCart, toggleRemovedIngredient } = useCartStore();
+  const deliveryOpen = useShopStatusStore((s) => s.deliveryOpen);
   const { fetchData } = useCMSStore();
 
   const [name, setName] = useState('');
@@ -114,6 +116,11 @@ export const CartDrawer: React.FC = () => {
 
   const handleCompleteOrder = async () => {
     setSubmitError('');
+
+    if (!deliveryOpen) {
+      setSubmitError('Restoran şu an paket servise kapalı.');
+      return;
+    }
 
     if (website.trim()) return;
 

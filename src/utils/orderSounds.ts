@@ -19,7 +19,21 @@ function playMp3(path: string, fallback: () => void): void {
   void audio.play().catch(() => fallback());
 }
 
-export function playNotificationSound(key: NotificationSoundKey): void {
+function playCustomMp3(url: string, fallback: () => void): void {
+  const audio = new Audio(url);
+  audio.volume = 0.85;
+  void audio.play().catch(() => fallback());
+}
+
+export function playNotificationSound(
+  key: NotificationSoundKey,
+  customUrl?: string | null,
+): void {
+  if (key === 'custom' && customUrl?.trim()) {
+    playCustomMp3(customUrl.trim(), () => playOscillator(920, 0.2));
+    return;
+  }
+
   switch (key) {
     case 'sound2':
       playMp3('/sounds/order-2.mp3', () => {
